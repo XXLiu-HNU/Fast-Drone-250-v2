@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <launch>
     <!-- Define the drone_id and namespace arguments -->
-    <arg name="drone_id" />
-    <arg name="namespace" default="" />
+    <arg name="drone_id" value="0"/>
+    <arg name="namespace" value="iris_0"/>
 
     <!-- Main px4ctrl node -->
     <node pkg="px4ctrl" type="px4ctrl_node" name="$(arg namespace)_px4ctrl" output="screen">
@@ -17,7 +17,7 @@
         <remap from="mavros/set_mode" to="/$(arg namespace)/mavros/set_mode" />
         <remap from="mavros/cmd/arming" to="/$(arg namespace)/mavros/cmd/arming" />
         <remap from="mavros/cmd/command" to="/$(arg namespace)/mavros/cmd/command" />
-        <remap from="~odom" to="/$(arg namespace)/mavros/local_position/odom" />
+        <remap from="~odom" to="/$(arg namespace)/mavros/vision_odom/odom" />
         <remap from="~cmd" to="/$(arg namespace)/position_cmd" />
         <rosparam command="load" file="$(find px4ctrl)/config/ctrl_param_fpv.yaml" />
     </node>

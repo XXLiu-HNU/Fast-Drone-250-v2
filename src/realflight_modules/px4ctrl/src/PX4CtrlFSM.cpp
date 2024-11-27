@@ -575,7 +575,7 @@ void PX4CtrlFSM::publish_attitude_ctrl(const Controller_Output_t &u, const ros::
 
 	ctrl_FCU_pub.publish(msg);
 }
-
+// what this means ??
 void PX4CtrlFSM::publish_trigger(const nav_msgs::Odometry &odom_msg)
 {
 	geometry_msgs::PoseStamped msg;

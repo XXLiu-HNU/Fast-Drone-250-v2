@@ -1,0 +1,36 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/xingxun/catkin_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/bspline_opt/include/**",
+        "/home/xingxun/catkin_ws/src/VINS-Fusion/camera_models/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/drone_detect/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/plan_manage/include/**",
+        "/home/xingxun/catkin_ws/src/gazebo_ros_pkgs/gazebo_plugins/include/**",
+        "/home/xingxun/catkin_ws/src/gazebo_ros_pkgs/gazebo_ros/include/**",
+        "/home/xingxun/catkin_ws/src/gazebo_ros_pkgs/gazebo_ros_control/include/**",
+        "/home/xingxun/PX4_Firmware/Tools/sitl_gazebo/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/Utils/multi_map_server/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/path_searching/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/plan_env/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/Utils/pose_utils/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/Utils/quadrotor_msgs/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/traj_utils/include/**",
+        "/home/xingxun/catkin_ws/src/ego_planner/Utils/uav_utils/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
