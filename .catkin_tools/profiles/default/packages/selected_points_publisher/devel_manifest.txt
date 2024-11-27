@@ -1,6 +1,0 @@
-Utils/selected_points_publisher
-/home/xingxun/Fast-Drone-250-v2/devel/.private/selected_points_publisher/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/./cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/selected_points_publisher/share/selected_points_publisher/cmake/selected_points_publisherConfig-version.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/selected_points_publisher/cmake/selected_points_publisherConfig-version.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/selected_points_publisher/share/selected_points_publisher/cmake/selected_points_publisherConfig.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/selected_points_publisher/cmake/selected_points_publisherConfig.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/selected_points_publisher/lib/libselected_points_publisher.so /home/xingxun/Fast-Drone-250-v2/devel/lib/libselected_points_publisher.so
-/home/xingxun/Fast-Drone-250-v2/devel/.private/selected_points_publisher/lib/pkgconfig/selected_points_publisher.pc /home/xingxun/Fast-Drone-250-v2/devel/lib/pkgconfig/selected_points_publisher.pc

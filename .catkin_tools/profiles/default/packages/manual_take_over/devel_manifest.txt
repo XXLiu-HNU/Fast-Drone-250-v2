@@ -1,7 +1,0 @@
-Utils/manual_take_over
-/home/xingxun/Fast-Drone-250-v2/devel/.private/manual_take_over/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/./cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/manual_take_over/share/manual_take_over/cmake/manual_take_overConfig-version.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/manual_take_over/cmake/manual_take_overConfig-version.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/manual_take_over/share/manual_take_over/cmake/manual_take_overConfig.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/manual_take_over/cmake/manual_take_overConfig.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/manual_take_over/lib/pkgconfig/manual_take_over.pc /home/xingxun/Fast-Drone-250-v2/devel/lib/pkgconfig/manual_take_over.pc
-/home/xingxun/Fast-Drone-250-v2/devel/.private/manual_take_over/lib/manual_take_over/manual_take_over_station /home/xingxun/Fast-Drone-250-v2/devel/lib/manual_take_over/manual_take_over_station
-/home/xingxun/Fast-Drone-250-v2/devel/.private/manual_take_over/lib/manual_take_over/manual_take_over /home/xingxun/Fast-Drone-250-v2/devel/lib/manual_take_over/manual_take_over

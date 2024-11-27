@@ -1,6 +1,0 @@
-planner/traj_opt
-/home/xingxun/Fast-Drone-250-v2/devel/.private/traj_opt/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/./cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/traj_opt/share/traj_opt/cmake/traj_optConfig-version.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/traj_opt/cmake/traj_optConfig-version.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/traj_opt/share/traj_opt/cmake/traj_optConfig.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/traj_opt/cmake/traj_optConfig.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/traj_opt/lib/libtraj_opt.so /home/xingxun/Fast-Drone-250-v2/devel/lib/libtraj_opt.so
-/home/xingxun/Fast-Drone-250-v2/devel/.private/traj_opt/lib/pkgconfig/traj_opt.pc /home/xingxun/Fast-Drone-250-v2/devel/lib/pkgconfig/traj_opt.pc

@@ -1,6 +1,0 @@
-planner/drone_detect
-/home/xingxun/Fast-Drone-250-v2/devel/.private/drone_detect/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/./cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/drone_detect/share/drone_detect/cmake/drone_detectConfig.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/drone_detect/cmake/drone_detectConfig.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/drone_detect/share/drone_detect/cmake/drone_detectConfig-version.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/drone_detect/cmake/drone_detectConfig-version.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/drone_detect/lib/pkgconfig/drone_detect.pc /home/xingxun/Fast-Drone-250-v2/devel/lib/pkgconfig/drone_detect.pc
-/home/xingxun/Fast-Drone-250-v2/devel/.private/drone_detect/lib/drone_detect/drone_detect /home/xingxun/Fast-Drone-250-v2/devel/lib/drone_detect/drone_detect

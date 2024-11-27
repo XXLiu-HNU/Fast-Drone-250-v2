@@ -1,9 +1,0 @@
-planner/plan_manage
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/./cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/share/ego_planner/cmake/ego_plannerConfig-version.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/ego_planner/cmake/ego_plannerConfig-version.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/share/ego_planner/cmake/ego_plannerConfig.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/ego_planner/cmake/ego_plannerConfig.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/lib/pkgconfig/ego_planner.pc /home/xingxun/Fast-Drone-250-v2/devel/lib/pkgconfig/ego_planner.pc
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/lib/ego_planner/vis.py /home/xingxun/Fast-Drone-250-v2/devel/lib/ego_planner/vis.py
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/lib/ego_planner/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/lib/ego_planner/cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/lib/ego_planner/traj_server /home/xingxun/Fast-Drone-250-v2/devel/lib/ego_planner/traj_server
-/home/xingxun/Fast-Drone-250-v2/devel/.private/ego_planner/lib/ego_planner/ego_planner_node /home/xingxun/Fast-Drone-250-v2/devel/lib/ego_planner/ego_planner_node

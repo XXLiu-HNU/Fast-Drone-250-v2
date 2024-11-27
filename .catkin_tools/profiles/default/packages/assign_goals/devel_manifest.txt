@@ -1,6 +1,0 @@
-Utils/assign_goals
-/home/xingxun/Fast-Drone-250-v2/devel/.private/assign_goals/cmake.lock /home/xingxun/Fast-Drone-250-v2/devel/./cmake.lock
-/home/xingxun/Fast-Drone-250-v2/devel/.private/assign_goals/share/assign_goals/cmake/assign_goalsConfig-version.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/assign_goals/cmake/assign_goalsConfig-version.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/assign_goals/share/assign_goals/cmake/assign_goalsConfig.cmake /home/xingxun/Fast-Drone-250-v2/devel/share/assign_goals/cmake/assign_goalsConfig.cmake
-/home/xingxun/Fast-Drone-250-v2/devel/.private/assign_goals/lib/pkgconfig/assign_goals.pc /home/xingxun/Fast-Drone-250-v2/devel/lib/pkgconfig/assign_goals.pc
-/home/xingxun/Fast-Drone-250-v2/devel/.private/assign_goals/lib/assign_goals/assign_goals_node /home/xingxun/Fast-Drone-250-v2/devel/lib/assign_goals/assign_goals_node
