@@ -93,32 +93,53 @@ bool AStar::ConvertToIndexAndAdjustStartEndPoints(Vector3d start_pt, Vector3d en
     if (!Coord2Index(start_pt, start_idx) || !Coord2Index(end_pt, end_idx))
         return false;
 
+    int occ;
     if (checkOccupancy(Index2Coord(start_idx)))
     {
-        //ROS_WARN("Start point is insdide an obstacle.");
+        // ROS_WARN("Start point is insdide an obstacle.");
         do
         {
             start_pt = (start_pt - end_pt).normalized() * step_size_ + start_pt;
+            // cout << "start_pt=" << start_pt.transpose() << endl;
             if (!Coord2Index(start_pt, start_idx))
+            {
                 return false;
-        } while (checkOccupancy(Index2Coord(start_idx)));
+            }
+
+            occ = checkOccupancy(Index2Coord(start_idx));
+            if (occ == -1)
+            {
+                ROS_WARN("[Astar] Start point outside the map region.");
+                return false;
+            }
+        } while (occ);
     }
 
     if (checkOccupancy(Index2Coord(end_idx)))
     {
-        //ROS_WARN("End point is insdide an obstacle.");
+        // ROS_WARN("End point is insdide an obstacle.");
         do
         {
             end_pt = (end_pt - start_pt).normalized() * step_size_ + end_pt;
+            // cout << "end_pt=" << end_pt.transpose() << endl;
             if (!Coord2Index(end_pt, end_idx))
+            {
                 return false;
+            }
+
+            occ = checkOccupancy(Index2Coord(start_idx));
+            if (occ == -1)
+            {
+                ROS_WARN("[Astar] End point outside the map region.");
+                return false;
+            }
         } while (checkOccupancy(Index2Coord(end_idx)));
     }
 
     return true;
 }
 
-bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_pt)
+ASTAR_RET AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_pt)
 {
     ros::Time time_1 = ros::Time::now();
     ++rounds_;
@@ -131,7 +152,7 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
     if (!ConvertToIndexAndAdjustStartEndPoints(start_pt, end_pt, start_idx, end_idx))
     {
         ROS_ERROR("Unable to handle the initial or end point, force return!");
-        return false;
+        return ASTAR_RET::INIT_ERR;
     }
 
     // if ( start_pt(0) > -1 && start_pt(0) < 0 )
@@ -146,6 +167,8 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
     GridNodePtr neighborPtr = NULL;
     GridNodePtr current = NULL;
 
+    endPtr->index = end_idx;
+
     startPtr->index = start_idx;
     startPtr->rounds = rounds_;
     startPtr->gScore = 0;
@@ -153,8 +176,6 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
     startPtr->state = GridNode::OPENSET; //put start node in open set
     startPtr->cameFrom = NULL;
     openSet_.push(startPtr); //put start in open set
-
-    endPtr->index = end_idx;
 
     double tentative_gScore;
 
@@ -175,7 +196,7 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
             // if((time_2 - time_1).toSec() > 0.1)
             //     ROS_WARN("Time consume in A star path finding is %f", (time_2 - time_1).toSec() );
             gridPath_ = retrievePath(current);
-            return true;
+            return ASTAR_RET::SUCCESS;
         }
         current->state = GridNode::CLOSEDSET; //move current node from open set to closed set.
 
@@ -236,7 +257,7 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
         if ((time_2 - time_1).toSec() > 0.2)
         {
             ROS_WARN("Failed in A star path searching !!! 0.2 seconds time limit exceeded.");
-            return false;
+            return ASTAR_RET::SEARCH_ERR;
         }
     }
 
@@ -245,7 +266,7 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
     if ((time_2 - time_1).toSec() > 0.1)
         ROS_WARN("Time consume in A star path finding is %.3fs, iter=%d", (time_2 - time_1).toSec(), num_iter);
 
-    return false;
+    return ASTAR_RET::SEARCH_ERR;
 }
 
 vector<Vector3d> AStar::getPath()

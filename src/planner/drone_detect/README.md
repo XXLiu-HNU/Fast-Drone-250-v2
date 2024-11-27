@@ -20,7 +20,7 @@ roslaunch drone_detect drone_detect.launch
 
 
 
-or add the following code in `run_in_sim.launch`
+or add the following code in `run_in_sim.xml`
 
 ```xml
   <node pkg="drone_detect" type="drone_detect" name="drone_$(arg drone_id)_drone_detect" output="screen">

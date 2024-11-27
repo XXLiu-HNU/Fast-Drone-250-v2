@@ -1,22 +1,23 @@
 #include "plan_env/grid_map.h"
 
-// #define current_img_ md_.depth_image_[image_cnt_ & 1]
-// #define last_img_ md_.depth_image_[!(image_cnt_ & 1)]
-
 void GridMap::initMap(ros::NodeHandle &nh)
 {
   node_ = nh;
 
   /* get parameter */
-  double x_size, y_size, z_size;
+  // double x_size, y_size, z_size;
+  node_.param("grid_map/pose_type", mp_.pose_type_, 1);
+  node_.param("grid_map/frame_id", mp_.frame_id_, string("world"));
+  node_.param("grid_map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0);
+
   node_.param("grid_map/resolution", mp_.resolution_, -1.0);
-  node_.param("grid_map/map_size_x", x_size, -1.0);
-  node_.param("grid_map/map_size_y", y_size, -1.0);
-  node_.param("grid_map/map_size_z", z_size, -1.0);
-  node_.param("grid_map/local_update_range_x", mp_.local_update_range_(0), -1.0);
-  node_.param("grid_map/local_update_range_y", mp_.local_update_range_(1), -1.0);
-  node_.param("grid_map/local_update_range_z", mp_.local_update_range_(2), -1.0);
+  node_.param("grid_map/local_update_range_x", mp_.local_update_range3d_(0), -1.0);
+  node_.param("grid_map/local_update_range_y", mp_.local_update_range3d_(1), -1.0);
+  node_.param("grid_map/local_update_range_z", mp_.local_update_range3d_(2), -1.0);
   node_.param("grid_map/obstacles_inflation", mp_.obstacles_inflation_, -1.0);
+  node_.param("grid_map/enable_virtual_wall", mp_.enable_virtual_walll_, false);
+  node_.param("grid_map/virtual_ceil", mp_.virtual_ceil_, -1.0);
+  node_.param("grid_map/virtual_ground", mp_.virtual_ground_, -1.0);
 
   node_.param("grid_map/fx", mp_.fx_, -1.0);
   node_.param("grid_map/fy", mp_.fy_, -1.0);
@@ -25,8 +26,7 @@ void GridMap::initMap(ros::NodeHandle &nh)
 
   node_.param("grid_map/use_depth_filter", mp_.use_depth_filter_, true);
   node_.param("grid_map/depth_filter_tolerance", mp_.depth_filter_tolerance_, -1.0);
-  node_.param("grid_map/depth_filter_maxdist", mp_.depth_filter_maxdist_, -1.0);
-  node_.param("grid_map/depth_filter_mindist", mp_.depth_filter_mindist_, -1.0);
+  node_.param("grid_map/depth_filter_mindist", mp_.depth_filter_mindist_, 0.1);
   node_.param("grid_map/depth_filter_margin", mp_.depth_filter_margin_, -1);
   node_.param("grid_map/k_depth_scaling_factor", mp_.k_depth_scaling_factor_, -1.0);
   node_.param("grid_map/skip_pixel", mp_.skip_pixel_, -1);
@@ -36,38 +36,30 @@ void GridMap::initMap(ros::NodeHandle &nh)
   node_.param("grid_map/p_min", mp_.p_min_, 0.12);
   node_.param("grid_map/p_max", mp_.p_max_, 0.97);
   node_.param("grid_map/p_occ", mp_.p_occ_, 0.80);
-  node_.param("grid_map/min_ray_length", mp_.min_ray_length_, -0.1);
-  node_.param("grid_map/max_ray_length", mp_.max_ray_length_, -0.1);
-
-  node_.param("grid_map/visualization_truncate_height", mp_.visualization_truncate_height_, -0.1);
-  node_.param("grid_map/virtual_ceil_height", mp_.virtual_ceil_height_, -0.1);
-  node_.param("grid_map/virtual_ceil_yp", mp_.virtual_ceil_yp_, -0.1);
-  node_.param("grid_map/virtual_ceil_yn", mp_.virtual_ceil_yn_, -0.1);
+  node_.param("grid_map/fading_time", mp_.fading_time_, 1000.0);
+  node_.param("grid_map/min_ray_length", mp_.min_ray_length_, 0.1);
 
   node_.param("grid_map/show_occ_time", mp_.show_occ_time_, false);
-  node_.param("grid_map/pose_type", mp_.pose_type_, 1);
 
-  node_.param("grid_map/frame_id", mp_.frame_id_, string("world"));
-  node_.param("grid_map/local_map_margin", mp_.local_map_margin_, 1);
-  node_.param("grid_map/ground_height", mp_.ground_height_, 1.0);
-
-  node_.param("grid_map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0);
-
-  if( mp_.virtual_ceil_height_ - mp_.ground_height_ > z_size)
+  mp_.inf_grid_ = ceil((mp_.obstacles_inflation_ - 1e-5) / mp_.resolution_);
+  if (mp_.inf_grid_ > 4)
   {
-    mp_.virtual_ceil_height_ = mp_.ground_height_ + z_size;
+    mp_.inf_grid_ = 4;
+    mp_.resolution_ = mp_.obstacles_inflation_ / mp_.inf_grid_;
+    ROS_WARN("Inflation is too big, which will cause siginificant computation! Resolution enalrged to %f automatically.", mp_.resolution_);
   }
 
   mp_.resolution_inv_ = 1 / mp_.resolution_;
-  mp_.map_origin_ = Eigen::Vector3d(-x_size / 2.0, -y_size / 2.0, mp_.ground_height_);
-  mp_.map_size_ = Eigen::Vector3d(x_size, y_size, z_size);
+  mp_.local_update_range3i_ = (mp_.local_update_range3d_ * mp_.resolution_inv_).array().ceil().cast<int>();
+  mp_.local_update_range3d_ = mp_.local_update_range3i_.array().cast<double>() * mp_.resolution_;
+  md_.ringbuffer_size3i_ = 2 * mp_.local_update_range3i_;
+  md_.ringbuffer_inf_size3i_ = md_.ringbuffer_size3i_ + Eigen::Vector3i(2 * mp_.inf_grid_, 2 * mp_.inf_grid_, 2 * mp_.inf_grid_);
 
   mp_.prob_hit_log_ = logit(mp_.p_hit_);
   mp_.prob_miss_log_ = logit(mp_.p_miss_);
   mp_.clamp_min_log_ = logit(mp_.p_min_);
   mp_.clamp_max_log_ = logit(mp_.p_max_);
   mp_.min_occupancy_log_ = logit(mp_.p_occ_);
-  mp_.unknown_flag_ = 0.01;
 
   cout << "hit: " << mp_.prob_hit_log_ << endl;
   cout << "miss: " << mp_.prob_miss_log_ << endl;
@@ -75,28 +67,25 @@ void GridMap::initMap(ros::NodeHandle &nh)
   cout << "max: " << mp_.clamp_max_log_ << endl;
   cout << "thresh log: " << mp_.min_occupancy_log_ << endl;
 
-  for (int i = 0; i < 3; ++i)
-    mp_.map_voxel_num_(i) = ceil(mp_.map_size_(i) / mp_.resolution_);
-
-  mp_.map_min_boundary_ = mp_.map_origin_;
-  mp_.map_max_boundary_ = mp_.map_origin_ + mp_.map_size_;
-
   // initialize data buffers
+  Eigen::Vector3i map_voxel_num3i = 2 * mp_.local_update_range3i_;
+  int buffer_size = map_voxel_num3i(0) * map_voxel_num3i(1) * map_voxel_num3i(2);
+  int buffer_inf_size = (map_voxel_num3i(0) + 2 * mp_.inf_grid_) * (map_voxel_num3i(1) + 2 * mp_.inf_grid_) * (map_voxel_num3i(2) + 2 * mp_.inf_grid_);
+  md_.ringbuffer_origin3i_ = Eigen::Vector3i(0, 0, 0);
+  md_.ringbuffer_inf_origin3i_ = Eigen::Vector3i(0, 0, 0);
 
-  int buffer_size = mp_.map_voxel_num_(0) * mp_.map_voxel_num_(1) * mp_.map_voxel_num_(2);
-
-  md_.occupancy_buffer_ = vector<double>(buffer_size, mp_.clamp_min_log_ - mp_.unknown_flag_);
-  md_.occupancy_buffer_inflate_ = vector<char>(buffer_size, 0);
+  md_.occupancy_buffer_ = vector<double>(buffer_size, mp_.clamp_min_log_);
+  md_.occupancy_buffer_inflate_ = vector<uint16_t>(buffer_inf_size, 0);
 
   md_.count_hit_and_miss_ = vector<short>(buffer_size, 0);
   md_.count_hit_ = vector<short>(buffer_size, 0);
   md_.flag_rayend_ = vector<char>(buffer_size, -1);
   md_.flag_traverse_ = vector<char>(buffer_size, -1);
+  md_.cache_voxel_ = vector<Eigen::Vector3i>(buffer_size, Eigen::Vector3i(0, 0, 0));
 
   md_.raycast_num_ = 0;
-
-  md_.proj_points_.resize(640 * 480 / mp_.skip_pixel_ / mp_.skip_pixel_);
-  md_.proj_points_cnt = 0;
+  md_.proj_points_cnt_ = 0;
+  md_.cache_voxel_cnt_ = 0;
 
   md_.cam2body_ << 0.0, 0.0, 1.0, 0.0,
       -1.0, 0.0, 0.0, 0.0,
@@ -104,7 +93,6 @@ void GridMap::initMap(ros::NodeHandle &nh)
       0.0, 0.0, 0.0, 1.0;
 
   /* init callback */
-
   depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(node_, "grid_map/depth", 50));
   extrinsic_sub_ = node_.subscribe<nav_msgs::Odometry>(
       "/vins_estimator/extrinsic", 10, &GridMap::extrinsicCallback, this); //sub
@@ -128,97 +116,355 @@ void GridMap::initMap(ros::NodeHandle &nh)
   }
 
   // use odometry and point cloud
-  indep_cloud_sub_ =
-      node_.subscribe<sensor_msgs::PointCloud2>("grid_map/cloud", 10, &GridMap::cloudCallback, this);
   indep_odom_sub_ =
       node_.subscribe<nav_msgs::Odometry>("grid_map/odom", 10, &GridMap::odomCallback, this);
+  indep_cloud_sub_ =
+      node_.subscribe<sensor_msgs::PointCloud2>("grid_map/cloud", 10, &GridMap::cloudCallback, this);
 
-  occ_timer_ = node_.createTimer(ros::Duration(0.05), &GridMap::updateOccupancyCallback, this);
-  vis_timer_ = node_.createTimer(ros::Duration(0.11), &GridMap::visCallback, this);
+  occ_timer_ = node_.createTimer(ros::Duration(0.032), &GridMap::updateOccupancyCallback, this);
+  vis_timer_ = node_.createTimer(ros::Duration(0.125), &GridMap::visCallback, this);
+  if (mp_.fading_time_ > 0)
+    fading_timer_ = node_.createTimer(ros::Duration(0.5), &GridMap::fadingCallback, this);
 
   map_pub_ = node_.advertise<sensor_msgs::PointCloud2>("grid_map/occupancy", 10);
   map_inf_pub_ = node_.advertise<sensor_msgs::PointCloud2>("grid_map/occupancy_inflate", 10);
 
   md_.occ_need_update_ = false;
-  md_.local_updated_ = false;
   md_.has_first_depth_ = false;
   md_.has_odom_ = false;
-  md_.has_cloud_ = false;
-  md_.image_cnt_ = 0;
   md_.last_occ_update_time_.fromSec(0);
 
-  md_.fuse_time_ = 0.0;
-  md_.update_num_ = 0;
-  md_.max_fuse_time_ = 0.0;
-
+  md_.flag_have_ever_received_depth_ = false;
   md_.flag_depth_odom_timeout_ = false;
-  md_.flag_use_depth_fusion = false;
-
-  // rand_noise_ = uniform_real_distribution<double>(-0.2, 0.2);
-  // rand_noise2_ = normal_distribution<double>(0, 0.2);
-  // random_device rd;
-  // eng_ = default_random_engine(rd());
 }
 
-void GridMap::resetBuffer()
+void GridMap::updateOccupancyCallback(const ros::TimerEvent & /*event*/)
 {
-  Eigen::Vector3d min_pos = mp_.map_min_boundary_;
-  Eigen::Vector3d max_pos = mp_.map_max_boundary_;
+  if (!checkDepthOdomNeedupdate())
+    return;
 
-  resetBuffer(min_pos, max_pos);
+  /* update occupancy */
+  ros::Time t1, t2, t3, t4, t5;
+  t1 = ros::Time::now();
 
-  md_.local_bound_min_ = Eigen::Vector3i::Zero();
-  md_.local_bound_max_ = mp_.map_voxel_num_ - Eigen::Vector3i::Ones();
-}
+  moveRingBuffer();
+  t2 = ros::Time::now();
 
-void GridMap::resetBuffer(Eigen::Vector3d min_pos, Eigen::Vector3d max_pos)
-{
+  projectDepthImage();
+  t3 = ros::Time::now();
 
-  Eigen::Vector3i min_id, max_id;
-  posToIndex(min_pos, min_id);
-  posToIndex(max_pos, max_id);
-
-  boundIndex(min_id);
-  boundIndex(max_id);
-
-  /* reset occ and dist buffer */
-  for (int x = min_id(0); x <= max_id(0); ++x)
-    for (int y = min_id(1); y <= max_id(1); ++y)
-      for (int z = min_id(2); z <= max_id(2); ++z)
-      {
-        md_.occupancy_buffer_inflate_[toAddress(x, y, z)] = 0;
-      }
-}
-
-int GridMap::setCacheOccupancy(Eigen::Vector3d pos, int occ)
-{
-  if (occ != 1 && occ != 0)
-    return INVALID_IDX;
-
-  Eigen::Vector3i id;
-  posToIndex(pos, id);
-  int idx_ctns = toAddress(id);
-
-  md_.count_hit_and_miss_[idx_ctns] += 1;
-
-  if (md_.count_hit_and_miss_[idx_ctns] == 1)
+  if (md_.proj_points_cnt_ > 0)
   {
-    md_.cache_voxel_.push(id);
+    raycastProcess();
+    t4 = ros::Time::now();
+
+    clearAndInflateLocalMap();
+    t5 = ros::Time::now();
+
+    if (mp_.show_occ_time_)
+    {
+      cout << setprecision(7);
+      cout << "t2=" << (t2 - t1).toSec() << " t3=" << (t3 - t2).toSec() << " t4=" << (t4 - t3).toSec() << " t5=" << (t5 - t4).toSec() << endl;
+
+      static int updatetimes = 0;
+      static double raycasttime = 0;
+      static double max_raycasttime = 0;
+      static double inflationtime = 0;
+      static double max_inflationtime = 0;
+      raycasttime += (t4 - t3).toSec();
+      max_raycasttime = max(max_raycasttime, (t4 - t3).toSec());
+      inflationtime += (t5 - t4).toSec();
+      max_inflationtime = max(max_inflationtime, (t5 - t4).toSec());
+      ++updatetimes;
+
+      printf("Raycast(ms): cur t = %lf, avg t = %lf, max t = %lf\n", (t4 - t3).toSec() * 1000, raycasttime / updatetimes * 1000, max_raycasttime * 1000);
+      printf("Infaltion(ms): cur t = %lf, avg t = %lf, max t = %lf\n", (t5 - t4).toSec() * 1000, inflationtime / updatetimes * 1000, max_inflationtime * 1000);
+    }
   }
 
-  if (occ == 1)
-    md_.count_hit_[idx_ctns] += 1;
+  md_.occ_need_update_ = false;
+}
 
-  return idx_ctns;
+void GridMap::visCallback(const ros::TimerEvent & /*event*/)
+{
+  if (!mp_.have_initialized_)
+    return;
+
+  ros::Time t0 = ros::Time::now();
+  publishMapInflate();
+  publishMap();
+  ros::Time t1 = ros::Time::now();
+
+  if (mp_.show_occ_time_)
+  {
+    printf("Visualization(ms):%f\n", (t1 - t0).toSec() * 1000);
+  }
+}
+
+void GridMap::fadingCallback(const ros::TimerEvent & /*event*/)
+{
+  const double reduce = (mp_.clamp_max_log_ - mp_.min_occupancy_log_) / (mp_.fading_time_ * 2); // function called at 2Hz
+  const double low_thres = mp_.clamp_min_log_ + reduce;
+
+  ros::Time t0 = ros::Time::now();
+  for (size_t i = 0; i < md_.occupancy_buffer_.size(); ++i)
+  {
+    if (md_.occupancy_buffer_[i] > low_thres)
+    {
+      bool obs_flag = md_.occupancy_buffer_[i] >= mp_.min_occupancy_log_;
+      md_.occupancy_buffer_[i] -= reduce;
+      if (obs_flag && md_.occupancy_buffer_[i] < mp_.min_occupancy_log_)
+      {
+        Eigen::Vector3i idx = BufIdx2GlobalIdx(i);
+        int inf_buf_idx = globalIdx2InfBufIdx(idx);
+        changeInfBuf(false, inf_buf_idx, idx);
+      }
+    }
+  }
+  ros::Time t1 = ros::Time::now();
+
+  if (mp_.show_occ_time_)
+  {
+    printf("Fading(ms):%f\n", (t1 - t0).toSec() * 1000);
+  }
+}
+
+void GridMap::depthPoseCallback(const sensor_msgs::ImageConstPtr &img,
+                                const geometry_msgs::PoseStampedConstPtr &pose)
+{
+  /* get depth image */
+  cv_bridge::CvImagePtr cv_ptr;
+  cv_ptr = cv_bridge::toCvCopy(img, img->encoding);
+
+  if (img->encoding == sensor_msgs::image_encodings::TYPE_32FC1)
+  {
+    (cv_ptr->image).convertTo(cv_ptr->image, CV_16UC1, mp_.k_depth_scaling_factor_);
+  }
+  cv_ptr->image.copyTo(md_.depth_image_);
+
+  static bool first_flag = true;
+  if (first_flag)
+  {
+    first_flag = false;
+    md_.proj_points_.resize(md_.depth_image_.cols * md_.depth_image_.rows / mp_.skip_pixel_ / mp_.skip_pixel_);
+  }
+
+  // std::cout << "depth: " << md_.depth_image_.cols << ", " << md_.depth_image_.rows << std::endl;
+
+  /* get pose */
+  md_.camera_pos_(0) = pose->pose.position.x;
+  md_.camera_pos_(1) = pose->pose.position.y;
+  md_.camera_pos_(2) = pose->pose.position.z;
+  md_.camera_r_m_ = Eigen::Quaterniond(pose->pose.orientation.w, pose->pose.orientation.x,
+                                       pose->pose.orientation.y, pose->pose.orientation.z)
+                        .toRotationMatrix();
+
+  md_.occ_need_update_ = true;
+  md_.flag_have_ever_received_depth_ = true;
+}
+
+void GridMap::depthOdomCallback(const sensor_msgs::ImageConstPtr &img,
+                                const nav_msgs::OdometryConstPtr &odom)
+{
+
+  /* get pose */
+  Eigen::Quaterniond body_q = Eigen::Quaterniond(odom->pose.pose.orientation.w,
+                                                 odom->pose.pose.orientation.x,
+                                                 odom->pose.pose.orientation.y,
+                                                 odom->pose.pose.orientation.z);
+  Eigen::Matrix3d body_r_m = body_q.toRotationMatrix();
+  Eigen::Matrix4d body2world;
+  body2world.block<3, 3>(0, 0) = body_r_m;
+  body2world(0, 3) = odom->pose.pose.position.x;
+  body2world(1, 3) = odom->pose.pose.position.y;
+  body2world(2, 3) = odom->pose.pose.position.z;
+  body2world(3, 3) = 1.0;
+
+  Eigen::Matrix4d cam_T = body2world * md_.cam2body_;
+  md_.camera_pos_(0) = cam_T(0, 3);
+  md_.camera_pos_(1) = cam_T(1, 3);
+  md_.camera_pos_(2) = cam_T(2, 3);
+  md_.camera_r_m_ = cam_T.block<3, 3>(0, 0);
+
+  /* get depth image */
+  cv_bridge::CvImagePtr cv_ptr;
+  cv_ptr = cv_bridge::toCvCopy(img, img->encoding);
+  if (img->encoding == sensor_msgs::image_encodings::TYPE_32FC1)
+  {
+    (cv_ptr->image).convertTo(cv_ptr->image, CV_16UC1, mp_.k_depth_scaling_factor_);
+  }
+  cv_ptr->image.copyTo(md_.depth_image_);
+
+  static bool first_flag = true;
+  if (first_flag)
+  {
+    first_flag = false;
+    md_.proj_points_.resize(md_.depth_image_.cols * md_.depth_image_.rows / mp_.skip_pixel_ / mp_.skip_pixel_);
+  }
+
+  md_.occ_need_update_ = true;
+  md_.flag_have_ever_received_depth_ = true;
+}
+
+void GridMap::odomCallback(const nav_msgs::OdometryConstPtr &odom)
+{
+  if (md_.flag_have_ever_received_depth_)
+  {
+    indep_odom_sub_.shutdown();
+    return;
+  }
+
+  /* get pose */
+  Eigen::Quaterniond body_q = Eigen::Quaterniond(odom->pose.pose.orientation.w,
+                                                 odom->pose.pose.orientation.x,
+                                                 odom->pose.pose.orientation.y,
+                                                 odom->pose.pose.orientation.z);
+  Eigen::Matrix3d body_r_m = body_q.toRotationMatrix();
+  Eigen::Matrix4d body2world;
+  body2world.block<3, 3>(0, 0) = body_r_m;
+  body2world(0, 3) = odom->pose.pose.position.x;
+  body2world(1, 3) = odom->pose.pose.position.y;
+  body2world(2, 3) = odom->pose.pose.position.z;
+  body2world(3, 3) = 1.0;
+
+  Eigen::Matrix4d cam_T = body2world * md_.cam2body_;
+  md_.camera_pos_(0) = cam_T(0, 3);
+  md_.camera_pos_(1) = cam_T(1, 3);
+  md_.camera_pos_(2) = cam_T(2, 3);
+  md_.camera_r_m_ = cam_T.block<3, 3>(0, 0);
+
+  md_.has_odom_ = true;
+}
+
+void GridMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr &img)
+{
+  /* Note: no obstalce elimination in this function! */
+
+  if (!md_.has_odom_)
+  {
+    std::cout << "grid_map: no odom!" << std::endl;
+    return;
+  }
+
+  pcl::PointCloud<pcl::PointXYZ> latest_cloud;
+  pcl::fromROSMsg(*img, latest_cloud);
+
+  if (latest_cloud.points.size() == 0)
+    return;
+
+  if (isnan(md_.camera_pos_(0)) || isnan(md_.camera_pos_(1)) || isnan(md_.camera_pos_(2)))
+    return;
+
+  moveRingBuffer();
+
+  pcl::PointXYZ pt;
+  Eigen::Vector3d p3d, p3d_inf;
+  for (size_t i = 0; i < latest_cloud.points.size(); ++i)
+  {
+    pt = latest_cloud.points[i];
+    p3d(0) = pt.x, p3d(1) = pt.y, p3d(2) = pt.z;
+    if (p3d.array().isNaN().sum())
+      continue;
+
+    if (isInBuf(p3d))
+    {
+      /* inflate the point */
+      Eigen::Vector3i idx = pos2GlobalIdx(p3d);
+      int buf_id = globalIdx2BufIdx(idx);
+      int inf_buf_id = globalIdx2InfBufIdx(idx);
+      md_.occupancy_buffer_[buf_id] = mp_.clamp_max_log_;
+
+      if (md_.occupancy_buffer_inflate_[inf_buf_id] < GRID_MAP_OBS_FLAG && md_.occupancy_buffer_[buf_id] >= mp_.min_occupancy_log_)
+      {
+        changeInfBuf(true, inf_buf_id, idx);
+      }
+    }
+  }
+}
+
+void GridMap::extrinsicCallback(const nav_msgs::OdometryConstPtr &odom)
+{
+  Eigen::Quaterniond cam2body_q = Eigen::Quaterniond(odom->pose.pose.orientation.w,
+                                                     odom->pose.pose.orientation.x,
+                                                     odom->pose.pose.orientation.y,
+                                                     odom->pose.pose.orientation.z);
+  Eigen::Matrix3d cam2body_r_m = cam2body_q.toRotationMatrix();
+  md_.cam2body_.block<3, 3>(0, 0) = cam2body_r_m;
+  md_.cam2body_(0, 3) = odom->pose.pose.position.x;
+  md_.cam2body_(1, 3) = odom->pose.pose.position.y;
+  md_.cam2body_(2, 3) = odom->pose.pose.position.z;
+  md_.cam2body_(3, 3) = 1.0;
+}
+
+void GridMap::moveRingBuffer()
+{
+  if (!mp_.have_initialized_)
+    initMapBoundary();
+
+  Eigen::Vector3i center_new = pos2GlobalIdx(md_.camera_pos_);
+  Eigen::Vector3i ringbuffer_lowbound3i_new = center_new - mp_.local_update_range3i_;
+  Eigen::Vector3d ringbuffer_lowbound3d_new = ringbuffer_lowbound3i_new.cast<double>() * mp_.resolution_;
+  Eigen::Vector3i ringbuffer_upbound3i_new = center_new + mp_.local_update_range3i_;
+  Eigen::Vector3d ringbuffer_upbound3d_new = ringbuffer_upbound3i_new.cast<double>() * mp_.resolution_;
+  ringbuffer_upbound3i_new -= Eigen::Vector3i(1, 1, 1);
+
+  const Eigen::Vector3i inf_grid3i(mp_.inf_grid_, mp_.inf_grid_, mp_.inf_grid_);
+  const Eigen::Vector3d inf_grid3d = inf_grid3i.array().cast<double>() * mp_.resolution_;
+  Eigen::Vector3i ringbuffer_inf_lowbound3i_new = ringbuffer_lowbound3i_new - inf_grid3i;
+  Eigen::Vector3d ringbuffer_inf_lowbound3d_new = ringbuffer_lowbound3d_new - inf_grid3d;
+  Eigen::Vector3i ringbuffer_inf_upbound3i_new = ringbuffer_upbound3i_new + inf_grid3i;
+  Eigen::Vector3d ringbuffer_inf_upbound3d_new = ringbuffer_upbound3d_new + inf_grid3d;
+
+  if (center_new(0) < md_.center_last3i_(0))
+    clearBuffer(0, ringbuffer_upbound3i_new(0));
+  if (center_new(0) > md_.center_last3i_(0))
+    clearBuffer(1, ringbuffer_lowbound3i_new(0));
+  if (center_new(1) < md_.center_last3i_(1))
+    clearBuffer(2, ringbuffer_upbound3i_new(1));
+  if (center_new(1) > md_.center_last3i_(1))
+    clearBuffer(3, ringbuffer_lowbound3i_new(1));
+  if (center_new(2) < md_.center_last3i_(2))
+    clearBuffer(4, ringbuffer_upbound3i_new(2));
+  if (center_new(2) > md_.center_last3i_(2))
+    clearBuffer(5, ringbuffer_lowbound3i_new(2));
+
+  for (int i = 0; i < 3; ++i)
+  {
+    while (md_.ringbuffer_origin3i_(i) < md_.ringbuffer_lowbound3i_(i))
+    {
+      md_.ringbuffer_origin3i_(i) += md_.ringbuffer_size3i_(i);
+    }
+    while (md_.ringbuffer_origin3i_(i) > md_.ringbuffer_upbound3i_(i))
+    {
+      md_.ringbuffer_origin3i_(i) -= md_.ringbuffer_size3i_(i);
+    }
+
+    while (md_.ringbuffer_inf_origin3i_(i) < md_.ringbuffer_inf_lowbound3i_(i))
+    {
+      md_.ringbuffer_inf_origin3i_(i) += md_.ringbuffer_inf_size3i_(i);
+    }
+    while (md_.ringbuffer_inf_origin3i_(i) > md_.ringbuffer_inf_upbound3i_(i))
+    {
+      md_.ringbuffer_inf_origin3i_(i) -= md_.ringbuffer_inf_size3i_(i);
+    }
+  }
+
+  md_.center_last3i_ = center_new;
+  md_.ringbuffer_lowbound3i_ = ringbuffer_lowbound3i_new;
+  md_.ringbuffer_lowbound3d_ = ringbuffer_lowbound3d_new;
+  md_.ringbuffer_upbound3i_ = ringbuffer_upbound3i_new;
+  md_.ringbuffer_upbound3d_ = ringbuffer_upbound3d_new;
+  md_.ringbuffer_inf_lowbound3i_ = ringbuffer_inf_lowbound3i_new;
+  md_.ringbuffer_inf_lowbound3d_ = ringbuffer_inf_lowbound3d_new;
+  md_.ringbuffer_inf_upbound3i_ = ringbuffer_inf_upbound3i_new;
+  md_.ringbuffer_inf_upbound3d_ = ringbuffer_inf_upbound3d_new;
 }
 
 void GridMap::projectDepthImage()
 {
-  // md_.proj_points_.clear();
-  md_.proj_points_cnt = 0;
+  md_.proj_points_cnt_ = 0;
 
   uint16_t *row_ptr;
-  // int cols = current_img_.cols, rows = current_img_.rows;
   int cols = md_.depth_image_.cols;
   int rows = md_.depth_image_.rows;
   int skip_pix = mp_.skip_pixel_;
@@ -229,24 +475,27 @@ void GridMap::projectDepthImage()
 
   if (!mp_.use_depth_filter_)
   {
-    for (int v = 0; v < rows; v+=skip_pix)
+    for (int v = 0; v < rows; v += skip_pix)
     {
       row_ptr = md_.depth_image_.ptr<uint16_t>(v);
 
-      for (int u = 0; u < cols; u+=skip_pix)
+      for (int u = 0; u < cols; u += skip_pix)
       {
 
         Eigen::Vector3d proj_pt;
-        depth = (*row_ptr++) / mp_.k_depth_scaling_factor_;
+        depth = (*row_ptr) / mp_.k_depth_scaling_factor_;
+        row_ptr = row_ptr + mp_.skip_pixel_;
+
+        if (depth < 0.1)
+          continue;
+
         proj_pt(0) = (u - mp_.cx_) * depth / mp_.fx_;
         proj_pt(1) = (v - mp_.cy_) * depth / mp_.fy_;
         proj_pt(2) = depth;
 
         proj_pt = camera_r * proj_pt + md_.camera_pos_;
 
-        if (u == 320 && v == 240)
-          std::cout << "depth: " << depth << std::endl;
-        md_.proj_points_[md_.proj_points_cnt++] = proj_pt;
+        md_.proj_points_[md_.proj_points_cnt_++] = proj_pt;
       }
     }
   }
@@ -279,17 +528,9 @@ void GridMap::projectDepthImage()
           // depth += rand_noise_(eng_);
           // if (depth > 0.01) depth += rand_noise2_(eng_);
 
-          if (*row_ptr == 0)
-          {
-            depth = mp_.max_ray_length_ + 0.1;
-          }
-          else if (depth < mp_.depth_filter_mindist_)
+          if (depth < mp_.depth_filter_mindist_)
           {
             continue;
-          }
-          else if (depth > mp_.depth_filter_maxdist_)
-          {
-            depth = mp_.max_ray_length_ + 0.1;
           }
 
           // project to world frame
@@ -298,11 +539,8 @@ void GridMap::projectDepthImage()
           pt_cur(2) = depth;
 
           pt_world = camera_r * pt_cur + md_.camera_pos_;
-          // if (!isInMap(pt_world)) {
-          //   pt_world = closetPointInMap(pt_world, md_.camera_pos_);
-          // }
 
-          md_.proj_points_[md_.proj_points_cnt++] = pt_world;
+          md_.proj_points_[md_.proj_points_cnt_++] = pt_world;
 
           // check consistency with last image, disabled...
           if (false)
@@ -316,12 +554,12 @@ void GridMap::projectDepthImage()
               if (fabs(md_.last_depth_image_.at<uint16_t>((int)vv, (int)uu) * inv_factor -
                        pt_reproj.z()) < mp_.depth_filter_tolerance_)
               {
-                md_.proj_points_[md_.proj_points_cnt++] = pt_world;
+                md_.proj_points_[md_.proj_points_cnt_++] = pt_world;
               }
             }
             else
             {
-              md_.proj_points_[md_.proj_points_cnt++] = pt_world;
+              md_.proj_points_[md_.proj_points_cnt_++] = pt_world;
             }
           }
         }
@@ -338,69 +576,35 @@ void GridMap::projectDepthImage()
 
 void GridMap::raycastProcess()
 {
-  // if (md_.proj_points_.size() == 0)
-  if (md_.proj_points_cnt == 0)
-    return;
+  md_.cache_voxel_cnt_ = 0;
 
-  ros::Time t1, t2;
+  ros::Time t1, t2, t3;
 
   md_.raycast_num_ += 1;
 
-  int vox_idx;
-  double length;
-
-  // bounding box of updated region
-  double min_x = mp_.map_max_boundary_(0);
-  double min_y = mp_.map_max_boundary_(1);
-  double min_z = mp_.map_max_boundary_(2);
-
-  double max_x = mp_.map_min_boundary_(0);
-  double max_y = mp_.map_min_boundary_(1);
-  double max_z = mp_.map_min_boundary_(2);
-
   RayCaster raycaster;
-  Eigen::Vector3d half = Eigen::Vector3d(0.5, 0.5, 0.5);
   Eigen::Vector3d ray_pt, pt_w;
 
-  for (int i = 0; i < md_.proj_points_cnt; ++i)
+  int pts_num = 0;
+  t1 = ros::Time::now();
+  for (int i = 0; i < md_.proj_points_cnt_; ++i)
   {
+    int vox_idx;
     pt_w = md_.proj_points_[i];
 
     // set flag for projected point
 
-    if (!isInMap(pt_w))
+    if (!isInBuf(pt_w))
     {
       pt_w = closetPointInMap(pt_w, md_.camera_pos_);
-
-      length = (pt_w - md_.camera_pos_).norm();
-      if (length > mp_.max_ray_length_)
-      {
-        pt_w = (pt_w - md_.camera_pos_) / length * mp_.max_ray_length_ + md_.camera_pos_;
-      }
+      pts_num++;
       vox_idx = setCacheOccupancy(pt_w, 0);
     }
     else
     {
-      length = (pt_w - md_.camera_pos_).norm();
-
-      if (length > mp_.max_ray_length_)
-      {
-        pt_w = (pt_w - md_.camera_pos_) / length * mp_.max_ray_length_ + md_.camera_pos_;
-        vox_idx = setCacheOccupancy(pt_w, 0);
-      }
-      else
-      {
-        vox_idx = setCacheOccupancy(pt_w, 1);
-      }
+      pts_num++;
+      vox_idx = setCacheOccupancy(pt_w, 1);
     }
-
-    max_x = max(max_x, pt_w(0));
-    max_y = max(max_y, pt_w(1));
-    max_z = max(max_z, pt_w(2));
-
-    min_x = min(min_x, pt_w(0));
-    min_y = min(min_y, pt_w(1));
-    min_z = min(min_z, pt_w(2));
 
     // raycasting between camera center and point
 
@@ -420,11 +624,9 @@ void GridMap::raycastProcess()
 
     while (raycaster.step(ray_pt))
     {
-      Eigen::Vector3d tmp = (ray_pt + half) * mp_.resolution_;
-      length = (tmp - md_.camera_pos_).norm();
+      Eigen::Vector3d tmp = (ray_pt + Eigen::Vector3d(0.5, 0.5, 0.5)) * mp_.resolution_;
 
-      // if (length < mp_.min_ray_length_) break;
-
+      pts_num++;
       vox_idx = setCacheOccupancy(tmp, 0);
 
       if (vox_idx != INVALID_IDX)
@@ -441,40 +643,12 @@ void GridMap::raycastProcess()
     }
   }
 
-  min_x = min(min_x, md_.camera_pos_(0));
-  min_y = min(min_y, md_.camera_pos_(1));
-  min_z = min(min_z, md_.camera_pos_(2));
+  t2 = ros::Time::now();
 
-  max_x = max(max_x, md_.camera_pos_(0));
-  max_y = max(max_y, md_.camera_pos_(1));
-  max_z = max(max_z, md_.camera_pos_(2));
-  max_z = max(max_z, mp_.ground_height_);
-
-  posToIndex(Eigen::Vector3d(max_x, max_y, max_z), md_.local_bound_max_);
-  posToIndex(Eigen::Vector3d(min_x, min_y, min_z), md_.local_bound_min_);
-  boundIndex(md_.local_bound_min_);
-  boundIndex(md_.local_bound_max_);
-
-  md_.local_updated_ = true;
-
-  // update occupancy cached in queue
-  Eigen::Vector3d local_range_min = md_.camera_pos_ - mp_.local_update_range_;
-  Eigen::Vector3d local_range_max = md_.camera_pos_ + mp_.local_update_range_;
-
-  Eigen::Vector3i min_id, max_id;
-  posToIndex(local_range_min, min_id);
-  posToIndex(local_range_max, max_id);
-  boundIndex(min_id);
-  boundIndex(max_id);
-
-  // std::cout << "cache all: " << md_.cache_voxel_.size() << std::endl;
-
-  while (!md_.cache_voxel_.empty())
+  for (int i = 0; i < md_.cache_voxel_cnt_; ++i)
   {
 
-    Eigen::Vector3i idx = md_.cache_voxel_.front();
-    int idx_ctns = toAddress(idx);
-    md_.cache_voxel_.pop();
+    int idx_ctns = globalIdx2BufIdx(md_.cache_voxel_[i]);
 
     double log_odds_update =
         md_.count_hit_[idx_ctns] >= md_.count_hit_and_miss_[idx_ctns] - md_.count_hit_[idx_ctns] ? mp_.prob_hit_log_ : mp_.prob_miss_log_;
@@ -487,28 +661,138 @@ void GridMap::raycastProcess()
     }
     else if (log_odds_update <= 0 && md_.occupancy_buffer_[idx_ctns] <= mp_.clamp_min_log_)
     {
-      md_.occupancy_buffer_[idx_ctns] = mp_.clamp_min_log_;
       continue;
-    }
-
-    bool in_local = idx(0) >= min_id(0) && idx(0) <= max_id(0) && idx(1) >= min_id(1) &&
-                    idx(1) <= max_id(1) && idx(2) >= min_id(2) && idx(2) <= max_id(2);
-    if (!in_local)
-    {
-      md_.occupancy_buffer_[idx_ctns] = mp_.clamp_min_log_;
     }
 
     md_.occupancy_buffer_[idx_ctns] =
         std::min(std::max(md_.occupancy_buffer_[idx_ctns] + log_odds_update, mp_.clamp_min_log_),
                  mp_.clamp_max_log_);
   }
+
+  t3 = ros::Time::now();
+
+  if (mp_.show_occ_time_)
+  {
+    ROS_WARN("Raycast time: t2-t1=%f, t3-t2=%f, pts_num=%d", (t2 - t1).toSec(), (t3 - t2).toSec(), pts_num);
+  }
+}
+
+void GridMap::clearAndInflateLocalMap()
+{
+  for (int i = 0; i < md_.cache_voxel_cnt_; ++i)
+  {
+    Eigen::Vector3i idx = md_.cache_voxel_[i];
+    int buf_id = globalIdx2BufIdx(idx);
+    int inf_buf_id = globalIdx2InfBufIdx(idx);
+
+    if (md_.occupancy_buffer_inflate_[inf_buf_id] < GRID_MAP_OBS_FLAG && md_.occupancy_buffer_[buf_id] >= mp_.min_occupancy_log_)
+    {
+      changeInfBuf(true, inf_buf_id, idx);
+    }
+
+    if (md_.occupancy_buffer_inflate_[inf_buf_id] >= GRID_MAP_OBS_FLAG && md_.occupancy_buffer_[buf_id] < mp_.min_occupancy_log_)
+    {
+      changeInfBuf(false, inf_buf_id, idx);
+    }
+  }
+}
+
+void GridMap::initMapBoundary()
+{
+  mp_.have_initialized_ = true;
+
+  md_.center_last3i_ = pos2GlobalIdx(md_.camera_pos_);
+
+  md_.ringbuffer_lowbound3i_ = md_.center_last3i_ - mp_.local_update_range3i_;
+  md_.ringbuffer_lowbound3d_ = md_.ringbuffer_lowbound3i_.cast<double>() * mp_.resolution_;
+  md_.ringbuffer_upbound3i_ = md_.center_last3i_ + mp_.local_update_range3i_;
+  md_.ringbuffer_upbound3d_ = md_.ringbuffer_upbound3i_.cast<double>() * mp_.resolution_;
+  md_.ringbuffer_upbound3i_ -= Eigen::Vector3i(1, 1, 1);
+
+  const Eigen::Vector3i inf_grid3i(mp_.inf_grid_, mp_.inf_grid_, mp_.inf_grid_);
+  const Eigen::Vector3d inf_grid3d = inf_grid3i.array().cast<double>() * mp_.resolution_;
+  md_.ringbuffer_inf_lowbound3i_ = md_.ringbuffer_lowbound3i_ - inf_grid3i;
+  md_.ringbuffer_inf_lowbound3d_ = md_.ringbuffer_lowbound3d_ - inf_grid3d;
+  md_.ringbuffer_inf_upbound3i_ = md_.ringbuffer_upbound3i_ + inf_grid3i;
+  md_.ringbuffer_inf_upbound3d_ = md_.ringbuffer_upbound3d_ + inf_grid3d;
+
+  // cout << "md_.ringbuffer_lowbound3i_=" << md_.ringbuffer_lowbound3i_.transpose() << " md_.ringbuffer_lowbound3d_=" << md_.ringbuffer_lowbound3d_.transpose() << " md_.ringbuffer_upbound3i_=" << md_.ringbuffer_upbound3i_.transpose() << " md_.ringbuffer_upbound3d_=" << md_.ringbuffer_upbound3d_.transpose() << endl;
+
+  for (int i = 0; i < 3; ++i)
+  {
+    while (md_.ringbuffer_origin3i_(i) < md_.ringbuffer_lowbound3i_(i))
+    {
+      md_.ringbuffer_origin3i_(i) += md_.ringbuffer_size3i_(i);
+    }
+    while (md_.ringbuffer_origin3i_(i) > md_.ringbuffer_upbound3i_(i))
+    {
+      md_.ringbuffer_origin3i_(i) -= md_.ringbuffer_size3i_(i);
+    }
+
+    while (md_.ringbuffer_inf_origin3i_(i) < md_.ringbuffer_inf_lowbound3i_(i))
+    {
+      md_.ringbuffer_inf_origin3i_(i) += md_.ringbuffer_inf_size3i_(i);
+    }
+    while (md_.ringbuffer_inf_origin3i_(i) > md_.ringbuffer_inf_upbound3i_(i))
+    {
+      md_.ringbuffer_inf_origin3i_(i) -= md_.ringbuffer_inf_size3i_(i);
+    }
+  }
+
+#if GRID_MAP_NEW_PLATFORM_TEST
+  testIndexingCost();
+#endif
+}
+
+void GridMap::clearBuffer(char casein, int bound)
+{
+  for (int x = (casein == 0 ? bound : md_.ringbuffer_lowbound3i_(0)); x <= (casein == 1 ? bound : md_.ringbuffer_upbound3i_(0)); ++x)
+    for (int y = (casein == 2 ? bound : md_.ringbuffer_lowbound3i_(1)); y <= (casein == 3 ? bound : md_.ringbuffer_upbound3i_(1)); ++y)
+      for (int z = (casein == 4 ? bound : md_.ringbuffer_lowbound3i_(2)); z <= (casein == 5 ? bound : md_.ringbuffer_upbound3i_(2)); ++z)
+      {
+        Eigen::Vector3i id_global(x, y, z);
+        int id_buf = globalIdx2BufIdx(id_global);
+        int id_buf_inf = globalIdx2InfBufIdx(id_global);
+        Eigen::Vector3i id_global_inf_clr((casein == 0 ? x + mp_.inf_grid_ : (casein == 1 ? x - mp_.inf_grid_ : x)),
+                                          (casein == 2 ? y + mp_.inf_grid_ : (casein == 3 ? y - mp_.inf_grid_ : y)),
+                                          (casein == 4 ? z + mp_.inf_grid_ : (casein == 5 ? z - mp_.inf_grid_ : z)));
+        // int id_buf_inf_clr = globalIdx2InfBufIdx(id_global_inf_clr);
+
+        // md_.occupancy_buffer_inflate_[id_buf_inf_clr] = 0;
+        md_.count_hit_[id_buf] = 0;
+        md_.count_hit_and_miss_[id_buf] = 0;
+        md_.flag_traverse_[id_buf] = md_.raycast_num_;
+        md_.flag_rayend_[id_buf] = md_.raycast_num_;
+        md_.occupancy_buffer_[id_buf] = mp_.clamp_min_log_;
+
+        if (md_.occupancy_buffer_inflate_[id_buf_inf] > GRID_MAP_OBS_FLAG)
+        {
+          changeInfBuf(false, id_buf_inf, id_global);
+        }
+      }
+
+#if GRID_MAP_NEW_PLATFORM_TEST
+  for (int x = (casein == 0 ? bound : md_.ringbuffer_lowbound3i_(0)); x <= (casein == 1 ? bound : md_.ringbuffer_upbound3i_(0)); ++x)
+    for (int y = (casein == 2 ? bound : md_.ringbuffer_lowbound3i_(1)); y <= (casein == 3 ? bound : md_.ringbuffer_upbound3i_(1)); ++y)
+      for (int z = (casein == 4 ? bound : md_.ringbuffer_lowbound3i_(2)); z <= (casein == 5 ? bound : md_.ringbuffer_upbound3i_(2)); ++z)
+      {
+        Eigen::Vector3i id_global_inf_clr((casein == 0 ? x + mp_.inf_grid_ : (casein == 1 ? x - mp_.inf_grid_ : x)),
+                                          (casein == 2 ? y + mp_.inf_grid_ : (casein == 3 ? y - mp_.inf_grid_ : y)),
+                                          (casein == 4 ? z + mp_.inf_grid_ : (casein == 5 ? z - mp_.inf_grid_ : z)));
+        int id_buf_inf_clr = globalIdx2InfBufIdx(id_global_inf_clr);
+        if (md_.occupancy_buffer_inflate_[id_buf_inf_clr] != 0)
+        {
+          ROS_ERROR("Here should be 0!!! md_.occupancy_buffer_inflate_[id_buf_inf_clr]=%d", md_.occupancy_buffer_inflate_[id_buf_inf_clr]);
+        }
+      }
+#endif
 }
 
 Eigen::Vector3d GridMap::closetPointInMap(const Eigen::Vector3d &pt, const Eigen::Vector3d &camera_pt)
 {
   Eigen::Vector3d diff = pt - camera_pt;
-  Eigen::Vector3d max_tc = mp_.map_max_boundary_ - camera_pt;
-  Eigen::Vector3d min_tc = mp_.map_min_boundary_ - camera_pt;
+  Eigen::Vector3d max_tc = md_.ringbuffer_upbound3d_ - camera_pt;
+  Eigen::Vector3d min_tc = md_.ringbuffer_lowbound3d_ - camera_pt;
 
   double min_t = 1000000;
 
@@ -530,334 +814,25 @@ Eigen::Vector3d GridMap::closetPointInMap(const Eigen::Vector3d &pt, const Eigen
   return camera_pt + (min_t - 1e-3) * diff;
 }
 
-void GridMap::clearAndInflateLocalMap()
+bool GridMap::checkDepthOdomNeedupdate()
 {
-  /*clear outside local*/
-  const int vec_margin = 5;
-  // Eigen::Vector3i min_vec_margin = min_vec - Eigen::Vector3i(vec_margin,
-  // vec_margin, vec_margin); Eigen::Vector3i max_vec_margin = max_vec +
-  // Eigen::Vector3i(vec_margin, vec_margin, vec_margin);
-
-  Eigen::Vector3i min_cut = md_.local_bound_min_ -
-                            Eigen::Vector3i(mp_.local_map_margin_, mp_.local_map_margin_, mp_.local_map_margin_);
-  Eigen::Vector3i max_cut = md_.local_bound_max_ +
-                            Eigen::Vector3i(mp_.local_map_margin_, mp_.local_map_margin_, mp_.local_map_margin_);
-  boundIndex(min_cut);
-  boundIndex(max_cut);
-
-  Eigen::Vector3i min_cut_m = min_cut - Eigen::Vector3i(vec_margin, vec_margin, vec_margin);
-  Eigen::Vector3i max_cut_m = max_cut + Eigen::Vector3i(vec_margin, vec_margin, vec_margin);
-  boundIndex(min_cut_m);
-  boundIndex(max_cut_m);
-
-  // clear data outside the local range
-
-  for (int x = min_cut_m(0); x <= max_cut_m(0); ++x)
-    for (int y = min_cut_m(1); y <= max_cut_m(1); ++y)
-    {
-
-      for (int z = min_cut_m(2); z < min_cut(2); ++z)
-      {
-        int idx = toAddress(x, y, z);
-        md_.occupancy_buffer_[idx] = mp_.clamp_min_log_ - mp_.unknown_flag_;
-      }
-
-      for (int z = max_cut(2) + 1; z <= max_cut_m(2); ++z)
-      {
-        int idx = toAddress(x, y, z);
-        md_.occupancy_buffer_[idx] = mp_.clamp_min_log_ - mp_.unknown_flag_;
-      }
-    }
-
-  for (int z = min_cut_m(2); z <= max_cut_m(2); ++z)
-    for (int x = min_cut_m(0); x <= max_cut_m(0); ++x)
-    {
-
-      for (int y = min_cut_m(1); y < min_cut(1); ++y)
-      {
-        int idx = toAddress(x, y, z);
-        md_.occupancy_buffer_[idx] = mp_.clamp_min_log_ - mp_.unknown_flag_;
-      }
-
-      for (int y = max_cut(1) + 1; y <= max_cut_m(1); ++y)
-      {
-        int idx = toAddress(x, y, z);
-        md_.occupancy_buffer_[idx] = mp_.clamp_min_log_ - mp_.unknown_flag_;
-      }
-    }
-
-  for (int y = min_cut_m(1); y <= max_cut_m(1); ++y)
-    for (int z = min_cut_m(2); z <= max_cut_m(2); ++z)
-    {
-
-      for (int x = min_cut_m(0); x < min_cut(0); ++x)
-      {
-        int idx = toAddress(x, y, z);
-        md_.occupancy_buffer_[idx] = mp_.clamp_min_log_ - mp_.unknown_flag_;
-      }
-
-      for (int x = max_cut(0) + 1; x <= max_cut_m(0); ++x)
-      {
-        int idx = toAddress(x, y, z);
-        md_.occupancy_buffer_[idx] = mp_.clamp_min_log_ - mp_.unknown_flag_;
-      }
-    }
-
-  // inflate occupied voxels to compensate robot size
-
-  int inf_step = ceil(mp_.obstacles_inflation_ / mp_.resolution_);
-  // int inf_step_z = 1;
-  vector<Eigen::Vector3i> inf_pts(pow(2 * inf_step + 1, 3));
-  // inf_pts.resize(4 * inf_step + 3);
-  Eigen::Vector3i inf_pt;
-
-  // clear outdated data
-  for (int x = md_.local_bound_min_(0); x <= md_.local_bound_max_(0); ++x)
-    for (int y = md_.local_bound_min_(1); y <= md_.local_bound_max_(1); ++y)
-      for (int z = md_.local_bound_min_(2); z <= md_.local_bound_max_(2); ++z)
-      {
-        md_.occupancy_buffer_inflate_[toAddress(x, y, z)] = 0;
-      }
-
-  // inflate obstacles
-  for (int x = md_.local_bound_min_(0); x <= md_.local_bound_max_(0); ++x)
-    for (int y = md_.local_bound_min_(1); y <= md_.local_bound_max_(1); ++y)
-      for (int z = md_.local_bound_min_(2); z <= md_.local_bound_max_(2); ++z)
-      {
-
-        if (md_.occupancy_buffer_[toAddress(x, y, z)] > mp_.min_occupancy_log_)
-        {
-          inflatePoint(Eigen::Vector3i(x, y, z), inf_step, inf_pts);
-
-          for (int k = 0; k < (int)inf_pts.size(); ++k)
-          {
-            inf_pt = inf_pts[k];
-            int idx_inf = toAddress(inf_pt);
-            if (idx_inf < 0 ||
-                idx_inf >= mp_.map_voxel_num_(0) * mp_.map_voxel_num_(1) * mp_.map_voxel_num_(2))
-            {
-              continue;
-            }
-            md_.occupancy_buffer_inflate_[idx_inf] = 1;
-          }
-        }
-      }
-
-  // add virtual ceiling to limit flight height
-  if (mp_.virtual_ceil_height_ > -0.5) {
-    int ceil_id = floor((mp_.virtual_ceil_height_ - mp_.map_origin_(2)) * mp_.resolution_inv_) - 1;
-    for (int x = md_.local_bound_min_(0); x <= md_.local_bound_max_(0); ++x)
-      for (int y = md_.local_bound_min_(1); y <= md_.local_bound_max_(1); ++y) {
-        md_.occupancy_buffer_inflate_[toAddress(x, y, ceil_id)] = 1;
-      }
+  if (md_.last_occ_update_time_.toSec() < 1.0)
+  {
+    md_.last_occ_update_time_ = ros::Time::now();
   }
-}
-
-void GridMap::visCallback(const ros::TimerEvent & /*event*/)
-{
-
-  publishMapInflate(true);
-  publishMap();
-}
-
-void GridMap::updateOccupancyCallback(const ros::TimerEvent & /*event*/)
-{
-  if (md_.last_occ_update_time_.toSec() < 1.0 ) md_.last_occ_update_time_ = ros::Time::now();
-  
   if (!md_.occ_need_update_)
   {
-    if ( md_.flag_use_depth_fusion && (ros::Time::now() - md_.last_occ_update_time_).toSec() > mp_.odom_depth_timeout_ )
+    if (md_.flag_have_ever_received_depth_ && (ros::Time::now() - md_.last_occ_update_time_).toSec() > mp_.odom_depth_timeout_)
     {
-      ROS_ERROR("odom or depth lost! ros::Time::now()=%f, md_.last_occ_update_time_=%f, mp_.odom_depth_timeout_=%f", 
-        ros::Time::now().toSec(), md_.last_occ_update_time_.toSec(), mp_.odom_depth_timeout_);
+      ROS_ERROR("odom or depth lost! ros::Time::now()=%f, md_.last_occ_update_time_=%f, mp_.odom_depth_timeout_=%f",
+                ros::Time::now().toSec(), md_.last_occ_update_time_.toSec(), mp_.odom_depth_timeout_);
       md_.flag_depth_odom_timeout_ = true;
     }
-    return;
+    return false;
   }
   md_.last_occ_update_time_ = ros::Time::now();
 
-  /* update occupancy */
-  // ros::Time t1, t2, t3, t4;
-  // t1 = ros::Time::now();
-
-  projectDepthImage();
-  // t2 = ros::Time::now();
-  raycastProcess();
-  // t3 = ros::Time::now();
-
-  if (md_.local_updated_)
-    clearAndInflateLocalMap();
-
-  // t4 = ros::Time::now();
-
-  // cout << setprecision(7);
-  // cout << "t2=" << (t2-t1).toSec() << " t3=" << (t3-t2).toSec() << " t4=" << (t4-t3).toSec() << endl;;
-
-  // md_.fuse_time_ += (t2 - t1).toSec();
-  // md_.max_fuse_time_ = max(md_.max_fuse_time_, (t2 - t1).toSec());
-
-  // if (mp_.show_occ_time_)
-  //   ROS_WARN("Fusion: cur t = %lf, avg t = %lf, max t = %lf", (t2 - t1).toSec(),
-  //            md_.fuse_time_ / md_.update_num_, md_.max_fuse_time_);
-
-  md_.occ_need_update_ = false;
-  md_.local_updated_ = false;
-}
-
-void GridMap::depthPoseCallback(const sensor_msgs::ImageConstPtr &img,
-                                const geometry_msgs::PoseStampedConstPtr &pose)
-{
-  /* get depth image */
-  cv_bridge::CvImagePtr cv_ptr;
-  cv_ptr = cv_bridge::toCvCopy(img, img->encoding);
-
-  if (img->encoding == sensor_msgs::image_encodings::TYPE_32FC1)
-  {
-    (cv_ptr->image).convertTo(cv_ptr->image, CV_16UC1, mp_.k_depth_scaling_factor_);
-  }
-  cv_ptr->image.copyTo(md_.depth_image_);
-
-  // std::cout << "depth: " << md_.depth_image_.cols << ", " << md_.depth_image_.rows << std::endl;
-
-  /* get pose */
-  md_.camera_pos_(0) = pose->pose.position.x;
-  md_.camera_pos_(1) = pose->pose.position.y;
-  md_.camera_pos_(2) = pose->pose.position.z;
-  md_.camera_r_m_ = Eigen::Quaterniond(pose->pose.orientation.w, pose->pose.orientation.x,
-                                       pose->pose.orientation.y, pose->pose.orientation.z)
-                        .toRotationMatrix();
-  if (isInMap(md_.camera_pos_))
-  {
-    md_.has_odom_ = true;
-    md_.update_num_ += 1;
-    md_.occ_need_update_ = true;
-  }
-  else
-  {
-    md_.occ_need_update_ = false;
-  }
-
-  md_.flag_use_depth_fusion = true;
-}
-
-void GridMap::odomCallback(const nav_msgs::OdometryConstPtr &odom)
-{
-  if (md_.has_first_depth_)
-    return;
-
-  md_.camera_pos_(0) = odom->pose.pose.position.x;
-  md_.camera_pos_(1) = odom->pose.pose.position.y;
-  md_.camera_pos_(2) = odom->pose.pose.position.z;
-
-  md_.has_odom_ = true;
-}
-
-void GridMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr &img)
-{
-
-  pcl::PointCloud<pcl::PointXYZ> latest_cloud;
-  pcl::fromROSMsg(*img, latest_cloud);
-
-  md_.has_cloud_ = true;
-
-  if (!md_.has_odom_)
-  {
-    std::cout << "no odom!" << std::endl;
-    return;
-  }
-
-  if (latest_cloud.points.size() == 0)
-    return;
-
-  if (isnan(md_.camera_pos_(0)) || isnan(md_.camera_pos_(1)) || isnan(md_.camera_pos_(2)))
-    return;
-
-  this->resetBuffer(md_.camera_pos_ - mp_.local_update_range_,
-                    md_.camera_pos_ + mp_.local_update_range_);
-
-  pcl::PointXYZ pt;
-  Eigen::Vector3d p3d, p3d_inf;
-
-  int inf_step = ceil(mp_.obstacles_inflation_ / mp_.resolution_);
-  int inf_step_z = 1;
-
-  double max_x, max_y, max_z, min_x, min_y, min_z;
-
-  min_x = mp_.map_max_boundary_(0);
-  min_y = mp_.map_max_boundary_(1);
-  min_z = mp_.map_max_boundary_(2);
-
-  max_x = mp_.map_min_boundary_(0);
-  max_y = mp_.map_min_boundary_(1);
-  max_z = mp_.map_min_boundary_(2);
-
-  for (size_t i = 0; i < latest_cloud.points.size(); ++i)
-  {
-    pt = latest_cloud.points[i];
-    p3d(0) = pt.x, p3d(1) = pt.y, p3d(2) = pt.z;
-
-    /* point inside update range */
-    Eigen::Vector3d devi = p3d - md_.camera_pos_;
-    Eigen::Vector3i inf_pt;
-
-    if (fabs(devi(0)) < mp_.local_update_range_(0) && fabs(devi(1)) < mp_.local_update_range_(1) &&
-        fabs(devi(2)) < mp_.local_update_range_(2))
-    {
-
-      /* inflate the point */
-      for (int x = -inf_step; x <= inf_step; ++x)
-        for (int y = -inf_step; y <= inf_step; ++y)
-          for (int z = -inf_step_z; z <= inf_step_z; ++z)
-          {
-
-            p3d_inf(0) = pt.x + x * mp_.resolution_;
-            p3d_inf(1) = pt.y + y * mp_.resolution_;
-            p3d_inf(2) = pt.z + z * mp_.resolution_;
-
-            max_x = max(max_x, p3d_inf(0));
-            max_y = max(max_y, p3d_inf(1));
-            max_z = max(max_z, p3d_inf(2));
-
-            min_x = min(min_x, p3d_inf(0));
-            min_y = min(min_y, p3d_inf(1));
-            min_z = min(min_z, p3d_inf(2));
-
-            posToIndex(p3d_inf, inf_pt);
-
-            if (!isInMap(inf_pt))
-              continue;
-
-            int idx_inf = toAddress(inf_pt);
-
-            md_.occupancy_buffer_inflate_[idx_inf] = 1;
-          }
-    }
-  }
-
-  min_x = min(min_x, md_.camera_pos_(0));
-  min_y = min(min_y, md_.camera_pos_(1));
-  min_z = min(min_z, md_.camera_pos_(2));
-
-  max_x = max(max_x, md_.camera_pos_(0));
-  max_y = max(max_y, md_.camera_pos_(1));
-  max_z = max(max_z, md_.camera_pos_(2));
-
-  max_z = max(max_z, mp_.ground_height_);
-
-  posToIndex(Eigen::Vector3d(max_x, max_y, max_z), md_.local_bound_max_);
-  posToIndex(Eigen::Vector3d(min_x, min_y, min_z), md_.local_bound_min_);
-
-  boundIndex(md_.local_bound_min_);
-  boundIndex(md_.local_bound_max_);
-
-  // add virtual ceiling to limit flight height
-  if (mp_.virtual_ceil_height_ > -0.5) {
-    int ceil_id = floor((mp_.virtual_ceil_height_ - mp_.map_origin_(2)) * mp_.resolution_inv_) - 1;
-    for (int x = md_.local_bound_min_(0); x <= md_.local_bound_max_(0); ++x)
-      for (int y = md_.local_bound_min_(1); y <= md_.local_bound_max_(1); ++y) {
-        md_.occupancy_buffer_inflate_[toAddress(x, y, ceil_id)] = 1;
-      }
-  }
+  return true;
 }
 
 void GridMap::publishMap()
@@ -866,36 +841,22 @@ void GridMap::publishMap()
   if (map_pub_.getNumSubscribers() <= 0)
     return;
 
-  pcl::PointXYZ pt;
+  Eigen::Vector3d heading = (md_.camera_r_m_ * md_.cam2body_.block<3, 3>(0, 0).transpose()).block<3, 1>(0, 0);
   pcl::PointCloud<pcl::PointXYZ> cloud;
-
-  Eigen::Vector3i min_cut = md_.local_bound_min_;
-  Eigen::Vector3i max_cut = md_.local_bound_max_;
-
-  int lmm = mp_.local_map_margin_ / 2;
-  min_cut -= Eigen::Vector3i(lmm, lmm, lmm);
-  max_cut += Eigen::Vector3i(lmm, lmm, lmm);
-
-  boundIndex(min_cut);
-  boundIndex(max_cut);
-
-  for (int x = min_cut(0); x <= max_cut(0); ++x)
-    for (int y = min_cut(1); y <= max_cut(1); ++y)
-      for (int z = min_cut(2); z <= max_cut(2); ++z)
-      {
-        if (md_.occupancy_buffer_[toAddress(x, y, z)] < mp_.min_occupancy_log_)
-          continue;
-
-        Eigen::Vector3d pos;
-        indexToPos(Eigen::Vector3i(x, y, z), pos);
-        if (pos(2) > mp_.visualization_truncate_height_)
-          continue;
-
-        pt.x = pos(0);
-        pt.y = pos(1);
-        pt.z = pos(2);
-        cloud.push_back(pt);
-      }
+  double lbz = mp_.enable_virtual_walll_ ? max(md_.ringbuffer_lowbound3d_(2), mp_.virtual_ground_) : md_.ringbuffer_lowbound3d_(2);
+  double ubz = mp_.enable_virtual_walll_ ? min(md_.ringbuffer_upbound3d_(2), mp_.virtual_ceil_) : md_.ringbuffer_upbound3d_(2);
+  if (md_.ringbuffer_upbound3d_(0) - md_.ringbuffer_lowbound3d_(0) > mp_.resolution_ && (md_.ringbuffer_upbound3d_(1) - md_.ringbuffer_lowbound3d_(1)) > mp_.resolution_ && (ubz - lbz) > mp_.resolution_)
+    for (double xd = md_.ringbuffer_lowbound3d_(0) + mp_.resolution_ / 2; xd <= md_.ringbuffer_upbound3d_(0); xd += mp_.resolution_)
+      for (double yd = md_.ringbuffer_lowbound3d_(1) + mp_.resolution_ / 2; yd <= md_.ringbuffer_upbound3d_(1); yd += mp_.resolution_)
+        for (double zd = lbz + mp_.resolution_ / 2; zd <= ubz; zd += mp_.resolution_)
+        {
+          Eigen::Vector3d relative_dir = (Eigen::Vector3d(xd, yd, zd) - md_.camera_pos_);
+          if (heading.dot(relative_dir.normalized()) > 0.5)
+          {
+            if (md_.occupancy_buffer_[globalIdx2BufIdx(pos2GlobalIdx(Eigen::Vector3d(xd, yd, zd)))] >= mp_.min_occupancy_log_)
+              cloud.push_back(pcl::PointXYZ(xd, yd, zd));
+          }
+        }
 
   cloud.width = cloud.points.size();
   cloud.height = 1;
@@ -907,45 +868,29 @@ void GridMap::publishMap()
   map_pub_.publish(cloud_msg);
 }
 
-void GridMap::publishMapInflate(bool all_info)
+void GridMap::publishMapInflate()
 {
 
   if (map_inf_pub_.getNumSubscribers() <= 0)
     return;
 
-  pcl::PointXYZ pt;
+  Eigen::Vector3d heading = (md_.camera_r_m_ * md_.cam2body_.block<3, 3>(0, 0).transpose()).block<3, 1>(0, 0);
   pcl::PointCloud<pcl::PointXYZ> cloud;
-
-  Eigen::Vector3i min_cut = md_.local_bound_min_;
-  Eigen::Vector3i max_cut = md_.local_bound_max_;
-
-  if (all_info)
-  {
-    int lmm = mp_.local_map_margin_;
-    min_cut -= Eigen::Vector3i(lmm, lmm, lmm);
-    max_cut += Eigen::Vector3i(lmm, lmm, lmm);
-  }
-
-  boundIndex(min_cut);
-  boundIndex(max_cut);
-
-  for (int x = min_cut(0); x <= max_cut(0); ++x)
-    for (int y = min_cut(1); y <= max_cut(1); ++y)
-      for (int z = min_cut(2); z <= max_cut(2); ++z)
-      {
-        if (md_.occupancy_buffer_inflate_[toAddress(x, y, z)] == 0)
-          continue;
-
-        Eigen::Vector3d pos;
-        indexToPos(Eigen::Vector3i(x, y, z), pos);
-        if (pos(2) > mp_.visualization_truncate_height_)
-          continue;
-
-        pt.x = pos(0);
-        pt.y = pos(1);
-        pt.z = pos(2);
-        cloud.push_back(pt);
-      }
+  double lbz = mp_.enable_virtual_walll_ ? max(md_.ringbuffer_inf_lowbound3d_(2), mp_.virtual_ground_) : md_.ringbuffer_inf_lowbound3d_(2);
+  double ubz = mp_.enable_virtual_walll_ ? min(md_.ringbuffer_inf_upbound3d_(2), mp_.virtual_ceil_) : md_.ringbuffer_inf_upbound3d_(2);
+  if (md_.ringbuffer_inf_upbound3d_(0) - md_.ringbuffer_inf_lowbound3d_(0) > mp_.resolution_ &&
+      (md_.ringbuffer_inf_upbound3d_(1) - md_.ringbuffer_inf_lowbound3d_(1)) > mp_.resolution_ && (ubz - lbz) > mp_.resolution_)
+    for (double xd = md_.ringbuffer_inf_lowbound3d_(0) + mp_.resolution_ / 2; xd < md_.ringbuffer_inf_upbound3d_(0); xd += mp_.resolution_)
+      for (double yd = md_.ringbuffer_inf_lowbound3d_(1) + mp_.resolution_ / 2; yd < md_.ringbuffer_inf_upbound3d_(1); yd += mp_.resolution_)
+        for (double zd = lbz + mp_.resolution_ / 2; zd < ubz; zd += mp_.resolution_)
+        {
+          Eigen::Vector3d relative_dir = (Eigen::Vector3d(xd, yd, zd) - md_.camera_pos_);
+          if (heading.dot(relative_dir.normalized()) > 0.5)
+          {
+            if (md_.occupancy_buffer_inflate_[globalIdx2InfBufIdx(pos2GlobalIdx(Eigen::Vector3d(xd, yd, zd)))])
+              cloud.push_back(pcl::PointXYZ(xd, yd, zd));
+          }
+        }
 
   cloud.width = cloud.points.size();
   cloud.height = 1;
@@ -955,70 +900,98 @@ void GridMap::publishMapInflate(bool all_info)
 
   pcl::toROSMsg(cloud, cloud_msg);
   map_inf_pub_.publish(cloud_msg);
-
-  // ROS_INFO("pub map");
 }
 
-bool GridMap::odomValid() { return md_.has_odom_; }
-
-bool GridMap::hasDepthObservation() { return md_.has_first_depth_; }
-
-Eigen::Vector3d GridMap::getOrigin() { return mp_.map_origin_; }
-
-// int GridMap::getVoxelNum() {
-//   return mp_.map_voxel_num_[0] * mp_.map_voxel_num_[1] * mp_.map_voxel_num_[2];
-// }
-
-void GridMap::getRegion(Eigen::Vector3d &ori, Eigen::Vector3d &size)
+void GridMap::testIndexingCost()
 {
-  ori = mp_.map_origin_, size = mp_.map_size_;
-}
+  if (!mp_.have_initialized_)
+    return;
 
-void GridMap::extrinsicCallback(const nav_msgs::OdometryConstPtr &odom)
-{
-  Eigen::Quaterniond cam2body_q = Eigen::Quaterniond(odom->pose.pose.orientation.w,
-                                                     odom->pose.pose.orientation.x,
-                                                     odom->pose.pose.orientation.y,
-                                                     odom->pose.pose.orientation.z);
-  Eigen::Matrix3d cam2body_r_m = cam2body_q.toRotationMatrix();
-  md_.cam2body_.block<3, 3>(0, 0) = cam2body_r_m;
-  md_.cam2body_(0, 3) = odom->pose.pose.position.x;
-  md_.cam2body_(1, 3) = odom->pose.pose.position.y;
-  md_.cam2body_(2, 3) = odom->pose.pose.position.z;
-  md_.cam2body_(3, 3) = 1.0;
-}
+  ros::Time t0 = ros::Time::now();
+  double a = 0;
+  int b = 0;
+  for (int i = 0; i < 10; ++i)
+    for (int x = md_.ringbuffer_lowbound3i_(0); x <= md_.ringbuffer_upbound3i_(0); ++x)
+      for (int y = md_.ringbuffer_lowbound3i_(1); y <= md_.ringbuffer_upbound3i_(1); ++y)
+        for (int z = md_.ringbuffer_lowbound3i_(2); z <= md_.ringbuffer_upbound3i_(2); ++z)
+        {
+          b += x + y + z;
+        }
+  ros::Time t1 = ros::Time::now();
 
-void GridMap::depthOdomCallback(const sensor_msgs::ImageConstPtr &img,
-                                const nav_msgs::OdometryConstPtr &odom)
-{
-  /* get pose */
-  Eigen::Quaterniond body_q = Eigen::Quaterniond(odom->pose.pose.orientation.w,
-                                                 odom->pose.pose.orientation.x,
-                                                 odom->pose.pose.orientation.y,
-                                                 odom->pose.pose.orientation.z);
-  Eigen::Matrix3d body_r_m = body_q.toRotationMatrix();
-  Eigen::Matrix4d body2world;
-  body2world.block<3, 3>(0, 0) = body_r_m;
-  body2world(0, 3) = odom->pose.pose.position.x;
-  body2world(1, 3) = odom->pose.pose.position.y;
-  body2world(2, 3) = odom->pose.pose.position.z;
-  body2world(3, 3) = 1.0;
+  for (int i = 0; i < 10; ++i)
+    for (int x = md_.ringbuffer_lowbound3i_(0); x <= md_.ringbuffer_upbound3i_(0); ++x)
+      for (int y = md_.ringbuffer_lowbound3i_(1); y <= md_.ringbuffer_upbound3i_(1); ++y)
+        for (int z = md_.ringbuffer_lowbound3i_(2); z <= md_.ringbuffer_upbound3i_(2); ++z)
+        {
+          int id_buf_inf_clr = globalIdx2InfBufIdx(Eigen::Vector3i(x, y, z)); // 8396us = 7970
+          b += id_buf_inf_clr;
+          b += x + y + z;
+        }
+  ros::Time t2 = ros::Time::now();
 
-  Eigen::Matrix4d cam_T = body2world * md_.cam2body_;
-  md_.camera_pos_(0) = cam_T(0, 3);
-  md_.camera_pos_(1) = cam_T(1, 3);
-  md_.camera_pos_(2) = cam_T(2, 3);
-  md_.camera_r_m_ = cam_T.block<3, 3>(0, 0);
+  for (int i = 0; i < 10; ++i)
+    for (int x = md_.ringbuffer_lowbound3i_(0); x <= md_.ringbuffer_upbound3i_(0); ++x)
+      for (int y = md_.ringbuffer_lowbound3i_(1); y <= md_.ringbuffer_upbound3i_(1); ++y)
+        for (int z = md_.ringbuffer_lowbound3i_(2); z <= md_.ringbuffer_upbound3i_(2); ++z)
+        {
+          Eigen::Vector3d pos = globalIdx2Pos(Eigen::Vector3i(x, y, z)); // 6553us = 6127
+          a += pos.sum();
+          b += x + y + z;
+        }
+  ros::Time t3 = ros::Time::now();
 
-  /* get depth image */
-  cv_bridge::CvImagePtr cv_ptr;
-  cv_ptr = cv_bridge::toCvCopy(img, img->encoding);
-  if (img->encoding == sensor_msgs::image_encodings::TYPE_32FC1)
-  {
-    (cv_ptr->image).convertTo(cv_ptr->image, CV_16UC1, mp_.k_depth_scaling_factor_);
-  }
-  cv_ptr->image.copyTo(md_.depth_image_);
+  for (int i = 0; i < 10; ++i)
+    for (double xd = md_.ringbuffer_lowbound3d_(0); xd <= md_.ringbuffer_upbound3d_(0); xd += mp_.resolution_)
+      for (double yd = md_.ringbuffer_lowbound3d_(1); yd <= md_.ringbuffer_upbound3d_(1); yd += mp_.resolution_)
+        for (double zd = md_.ringbuffer_lowbound3d_(2); zd <= md_.ringbuffer_upbound3d_(2); zd += mp_.resolution_)
+        {
+          a += xd + yd + zd;
+        }
+  ros::Time t4 = ros::Time::now();
 
-  md_.occ_need_update_ = true;
-  md_.flag_use_depth_fusion = true;
+  for (int i = 0; i < 10; ++i)
+    for (double xd = md_.ringbuffer_lowbound3d_(0); xd <= md_.ringbuffer_upbound3d_(0); xd += mp_.resolution_)
+      for (double yd = md_.ringbuffer_lowbound3d_(1); yd <= md_.ringbuffer_upbound3d_(1); yd += mp_.resolution_)
+        for (double zd = md_.ringbuffer_lowbound3d_(2); zd <= md_.ringbuffer_upbound3d_(2); zd += mp_.resolution_)
+        {
+          Eigen::Vector3i idx = pos2GlobalIdx(Eigen::Vector3d(xd, yd, zd)); // 7088us = 478us
+          a += xd + yd + zd;
+          b += idx.sum();
+        }
+  ros::Time t5 = ros::Time::now();
+
+  for (int i = 0; i < 10; ++i)
+    for (double xd = md_.ringbuffer_lowbound3d_(0); xd <= md_.ringbuffer_upbound3d_(0); xd += mp_.resolution_)
+      for (double yd = md_.ringbuffer_lowbound3d_(1); yd <= md_.ringbuffer_upbound3d_(1); yd += mp_.resolution_)
+        for (double zd = md_.ringbuffer_lowbound3d_(2); zd <= md_.ringbuffer_upbound3d_(2); zd += mp_.resolution_)
+        {
+          int id_buf_inf_clr = globalIdx2InfBufIdx(pos2GlobalIdx(Eigen::Vector3d(xd, yd, zd)));
+          a += xd + yd + zd;
+          b += id_buf_inf_clr;
+        }
+  ros::Time t6 = ros::Time::now();
+
+  for (int i = 0; i < 10; ++i)
+    for (size_t i = 0; i < md_.occupancy_buffer_.size(); ++i)
+    {
+      b += i;
+    }
+  ros::Time t7 = ros::Time::now();
+
+  for (int i = 0; i < 10; ++i)
+    for (size_t i = 0; i < md_.occupancy_buffer_.size(); ++i)
+    {
+      Eigen::Vector3i idx = BufIdx2GlobalIdx(i); // 36939
+      b += i;
+      b += idx.sum();
+    }
+  ros::Time t8 = ros::Time::now();
+
+  int n = md_.occupancy_buffer_.size() * 10;
+
+  cout << "a=" << a << " b=" << b << endl;
+  printf("iter=%d, t1-t0=%f, t2-t1=%f, t3-t2=%f, t4-t3=%f, t5-t4=%f, t6-t5=%f, t7-t6=%f, t8-t7=%f\n", n, (t1 - t0).toSec(), (t2 - t1).toSec(), (t3 - t2).toSec(), (t4 - t3).toSec(), (t5 - t4).toSec(), (t6 - t5).toSec(), (t7 - t6).toSec(), (t8 - t7).toSec());
+  printf("globalIdx2InfBufIdx():%fns(1.88), globalIdx2Pos():%fns(0.70), pos2GlobalIdx():%fns(1.11), globalIdx2InfBufIdx(pos2GlobalIdx()):%fns(3.56), BufIdx2GlobalIdx():%fns(10.05)\n",
+         ((t2 - t1) - (t1 - t0)).toSec() * 1e9 / n, ((t3 - t2) - (t1 - t0)).toSec() * 1e9 / n, ((t5 - t4) - (t4 - t3)).toSec() * 1e9 / n, ((t6 - t5) - (t4 - t3)).toSec() * 1e9 / n, ((t8 - t7) - (t7 - t6)).toSec() * 1e9 / n);
 }

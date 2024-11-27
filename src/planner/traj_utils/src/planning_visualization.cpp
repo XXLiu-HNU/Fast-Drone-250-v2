@@ -12,7 +12,17 @@ namespace ego_planner
     global_list_pub = nh.advertise<visualization_msgs::Marker>("global_list", 2);
     init_list_pub = nh.advertise<visualization_msgs::Marker>("init_list", 2);
     optimal_list_pub = nh.advertise<visualization_msgs::Marker>("optimal_list", 2);
+    failed_list_pub = nh.advertise<visualization_msgs::Marker>("failed_list", 2);
     a_star_list_pub = nh.advertise<visualization_msgs::Marker>("a_star_list", 20);
+
+    // intermediate_pt0_pub = nh.advertise<visualization_msgs::Marker>("pt0_dur_opt", 10);
+    // intermediate_grad0_pub = nh.advertise<visualization_msgs::MarkerArray>("grad0_dur_opt", 10);
+    // intermediate_pt1_pub = nh.advertise<visualization_msgs::Marker>("pt1_dur_opt", 10);
+    // intermediate_grad1_pub = nh.advertise<visualization_msgs::MarkerArray>("grad1_dur_opt", 10);
+    // intermediate_grad_smoo_pub = nh.advertise<visualization_msgs::MarkerArray>("smoo_grad_dur_opt", 10);
+    // intermediate_grad_dist_pub = nh.advertise<visualization_msgs::MarkerArray>("dist_grad_dur_opt", 10);
+    // intermediate_grad_feas_pub = nh.advertise<visualization_msgs::MarkerArray>("feas_grad_dur_opt", 10);
+    // intermediate_grad_swarm_pub = nh.advertise<visualization_msgs::MarkerArray>("swarm_grad_dur_opt", 10);
   }
 
   // // real ids used: {id, id+1000}
@@ -43,10 +53,10 @@ namespace ego_planner
       pt.x = list[i](0);
       pt.y = list[i](1);
       pt.z = list[i](2);
-      //if (show_sphere) sphere.points.push_back(pt);
+      if (show_sphere) sphere.points.push_back(pt);
       line_strip.points.push_back(pt);
     }
-    //if (show_sphere) pub.publish(sphere);
+    if (show_sphere) pub.publish(sphere);
     pub.publish(line_strip);
   }
 
@@ -55,7 +65,7 @@ namespace ego_planner
                                                        const vector<Eigen::Vector3d> &list, double scale, Eigen::Vector4d color, int id)
   {
     visualization_msgs::Marker sphere, line_strip;
-    sphere.header.frame_id = line_strip.header.frame_id = "map";
+    sphere.header.frame_id = line_strip.header.frame_id = "world";
     sphere.header.stamp = line_strip.header.stamp = ros::Time::now();
     sphere.type = visualization_msgs::Marker::SPHERE_LIST;
     line_strip.type = visualization_msgs::Marker::LINE_STRIP;
@@ -90,7 +100,7 @@ namespace ego_planner
                                                         const vector<Eigen::Vector3d> &list, double scale, Eigen::Vector4d color, int id)
   {
     visualization_msgs::Marker arrow;
-    arrow.header.frame_id = "map";
+    arrow.header.frame_id = "world";
     arrow.header.stamp = ros::Time::now();
     arrow.type = visualization_msgs::Marker::ARROW;
     arrow.action = visualization_msgs::Marker::ADD;
@@ -183,7 +193,7 @@ namespace ego_planner
     }
     last_nums = 0;
 
-    for ( int id=0; id<init_trajs.size(); id++ )
+    for ( int id=0; id<(int)init_trajs.size(); id++ )
     {
       Eigen::Vector4d color(0, 0, 1, 0.7);
       displayMarkerList(init_list_pub, init_trajs[id], scale, color, id, false);
@@ -205,6 +215,35 @@ namespace ego_planner
     displayMarkerList(init_list_pub, init_pts, scale, color, id);
   }
 
+  void PlanningVisualization::displayMultiOptimalPathList(vector<vector<Eigen::Vector3d>> optimal_trajs, const double scale) // zxzxzx
+  {
+
+    if (optimal_list_pub.getNumSubscribers() == 0)
+    {
+      return;
+    }
+
+    static int last_nums = 0;
+
+    for ( int id=0; id<last_nums; id++ )
+    {
+      Eigen::Vector4d color(0, 0, 0, 0);
+      vector<Eigen::Vector3d> blank;
+      displayMarkerList(optimal_list_pub, blank, scale, color, id + 10, false);
+      ros::Duration(0.001).sleep();
+    }
+    last_nums = 0;
+
+    for ( int id=0; id<(int)optimal_trajs.size(); id++ )
+    {
+      Eigen::Vector4d color(1, 0, 0, 0.7);
+      displayMarkerList(optimal_list_pub, optimal_trajs[id], scale, color, id + 10, false);
+      ros::Duration(0.001).sleep();
+      last_nums++;
+    }
+
+  }
+
   void PlanningVisualization::displayOptimalList(Eigen::MatrixXd optimal_pts, int id)
   {
 
@@ -221,6 +260,24 @@ namespace ego_planner
     }
     Eigen::Vector4d color(1, 0, 0, 1);
     displayMarkerList(optimal_list_pub, list, 0.15, color, id);
+  }
+
+  void PlanningVisualization::displayFailedList(Eigen::MatrixXd failed_pts, int id)
+  {
+
+    if (failed_list_pub.getNumSubscribers() == 0)
+    {
+      return;
+    }
+
+    vector<Eigen::Vector3d> list;
+    for (int i = 0; i < failed_pts.cols(); i++)
+    {
+      Eigen::Vector3d pt = failed_pts.col(i).transpose();
+      list.push_back(pt);
+    }
+    Eigen::Vector4d color(0.3, 0, 0, 1);
+    displayMarkerList(failed_list_pub, list, 0.15, color, id);
   }
 
   void PlanningVisualization::displayAStarList(std::vector<std::vector<Eigen::Vector3d>> a_star_paths, int id /* = Eigen::Vector4d(0.5,0.5,0,1)*/)
@@ -259,6 +316,79 @@ namespace ego_planner
     generateArrowDisplayArray(array, list, scale, color, id);
 
     pub.publish(array);
+  }
+
+  void PlanningVisualization::displayIntermediatePt(std::string type, Eigen::MatrixXd &pts, int id, Eigen::Vector4d color)
+  {
+    std::vector<Eigen::Vector3d> pts_;
+    pts_.reserve(pts.cols());
+    for ( int i=0; i<pts.cols(); i++ )
+    {
+      pts_.emplace_back(pts.col(i));
+    }
+
+    if ( !type.compare("0") )
+    {
+      displayMarkerList(intermediate_pt0_pub, pts_, 0.1, color, id);
+    }
+    else if ( !type.compare("1") )
+    {
+      displayMarkerList(intermediate_pt1_pub, pts_, 0.1, color, id);
+    }
+  }
+
+  void PlanningVisualization::displayIntermediateGrad(std::string type, Eigen::MatrixXd &pts, Eigen::MatrixXd &grad, int id, Eigen::Vector4d color)
+  {
+    if ( pts.cols() != grad.cols() )
+    {
+      ROS_ERROR("pts.cols() != grad.cols()");
+      return;
+    }
+    std::vector<Eigen::Vector3d> arrow_;
+    arrow_.reserve(pts.cols()*2);
+    if ( !type.compare("swarm") )
+    {
+      for ( int i=0; i<pts.cols(); i++ )
+      {
+        arrow_.emplace_back(pts.col(i));
+        arrow_.emplace_back(grad.col(i));
+      }
+    }
+    else
+    {
+      for ( int i=0; i<pts.cols(); i++ )
+      {
+        arrow_.emplace_back(pts.col(i));
+        arrow_.emplace_back(pts.col(i)+grad.col(i));
+      }
+    }
+    
+
+    if ( !type.compare("grad0") )
+    {
+      displayArrowList(intermediate_grad0_pub, arrow_, 0.05, color, id);
+    }
+    else if ( !type.compare("grad1") )
+    {
+      displayArrowList(intermediate_grad1_pub, arrow_, 0.05, color, id);
+    }
+    else if ( !type.compare("dist") )
+    {
+      displayArrowList(intermediate_grad_dist_pub, arrow_, 0.05, color, id);
+    }
+    else if ( !type.compare("smoo") )
+    {
+      displayArrowList(intermediate_grad_smoo_pub, arrow_, 0.05, color, id);
+    }
+    else if ( !type.compare("feas") )
+    {
+      displayArrowList(intermediate_grad_feas_pub, arrow_, 0.05, color, id);
+    }
+    else if ( !type.compare("swarm") )
+    {
+      displayArrowList(intermediate_grad_swarm_pub, arrow_, 0.02, color, id);
+    }
+    
   }
 
   // PlanningVisualization::

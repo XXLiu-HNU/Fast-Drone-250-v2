@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   quadrotor_msgs
   plan_env
   path_searching
-  bspline_opt
+  traj_opt
   traj_utils
   message_generation
   cv_bridge
@@ -26,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES ego_planner
- CATKIN_DEPENDS plan_env path_searching bspline_opt traj_utils 
+ CATKIN_DEPENDS plan_env path_searching traj_opt traj_utils 
 #  DEPENDS system_lib
 )
 
@@ -51,7 +51,7 @@ target_link_libraries(ego_planner_node
 
 add_executable(traj_server src/traj_server.cpp)
 target_link_libraries(traj_server ${catkin_LIBRARIES})
-#add_dependencies(traj_server ${${PROJECT_NAME}_EXPORTED_TARGETS})
+# add_dependencies(traj_server ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 catkin_install_python(PROGRAMS scripts/vis.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
