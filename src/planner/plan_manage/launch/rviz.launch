@@ -1,3 +1,4 @@
 <launch>
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ego_planner)/launch/default.rviz" required="true" />
+  <node pkg="ego_planner" type="vis.py" name="visualization_node" output="screen" />
 </launch>

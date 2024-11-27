@@ -15,12 +15,12 @@
         <param name="map/z_size" value="3" />
         <param name="map/resolution" value="0.1"/>
         <param name="ObstacleShape/seed" value="1"/>
-        <param name="map/obs_num" value="100"/>
+        <param name="map/obs_num" value="250"/>
         <param name="ObstacleShape/lower_rad" value="0.5"/>
         <param name="ObstacleShape/upper_rad" value="0.7"/>
         <param name="ObstacleShape/lower_hei" value="0.0"/>
         <param name="ObstacleShape/upper_hei" value="3.0"/>
-        <param name="map/circle_num" value="100"/>
+        <param name="map/circle_num" value="250"/>
         <param name="ObstacleShape/radius_l" value="0.7"/>
         <param name="ObstacleShape/radius_h" value="0.5"/>
         <param name="ObstacleShape/z_l" value="0.7"/>
@@ -59,7 +59,7 @@
         <arg name="use_distinctive_trajs" value="true" />
         <!-- 1: use 2D Nav Goal to select goal  -->
         <!-- 2: use global waypoints below  -->
-        <arg name="flight_type" value="1" />
+        <arg name="flight_type" value="2" />
         <!-- global waypoints -->
         <!-- It generates a piecewise min-snap traj passing all waypoints -->
         <arg name="point_num" value="4" />
@@ -85,9 +85,6 @@
         <remap from="~planning/bspline" to="drone_$(arg drone_id)_planning/bspline"/>
         <param name="traj_server/time_forward" value="1.0" type="double"/>
     </node>
-
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ego_planner)/launch/sim.rviz" required="true" />
-
     <!-- use simulator -->
     <include file="$(find ego_planner)/launch/simulator.xml">
         <arg name="drone_id" value="$(arg drone_id)"/>

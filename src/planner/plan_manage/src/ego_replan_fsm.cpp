@@ -22,6 +22,8 @@ namespace ego_planner
     nh.param("fsm/realworld_experiment", flag_realworld_experiment_, false);
     nh.param("fsm/fail_safe", enable_fail_safe_, true);
 
+    // here is for sim, because there is no pub for trigger 
+    // while in realworld, trigger is sended by [px4ctrl]
     have_trigger_ = !flag_realworld_experiment_;
 
     nh.param("fsm/waypoint_num", waypoint_num_, -1);
@@ -59,6 +61,7 @@ namespace ego_planner
     bspline_pub_ = nh.advertise<traj_utils::Bspline>("planning/bspline", 10);
     data_disp_pub_ = nh.advertise<traj_utils::DataDisp>("planning/data_display", 100);
 
+    // choose the traget type 
     if (target_type_ == TARGET_TYPE::MANUAL_TARGET)
     {
       waypoint_sub_ = nh.subscribe("/move_base_simple/goal", 1, &EGOReplanFSM::waypointCallback, this);
@@ -244,10 +247,12 @@ namespace ego_planner
 
   void EGOReplanFSM::BroadcastBsplineCallback(const traj_utils::BsplinePtr &msg)
   {
+    // 1. 忽略当前无人机的广播消息
     size_t id = msg->drone_id;
     if ((int)id == planner_manager_->pp_.drone_id)
       return;
 
+    // 2. 时间同步检查
     if (abs((ros::Time::now() - msg->start_time).toSec()) > 0.25)
     {
       ROS_ERROR("Time difference is too large! Local - Remote Agent %d = %fs",
@@ -255,6 +260,7 @@ namespace ego_planner
       return;
     }
 
+    // 3. 填充轨迹缓冲区
     /* Fill up the buffer */
     if (planner_manager_->swarm_trajs_buf_.size() <= id)
     {
@@ -266,6 +272,7 @@ namespace ego_planner
       }
     }
 
+    // 4. 距离检查
     /* Test distance to the agent */
     Eigen::Vector3d cp0(msg->pos_pts[0].x, msg->pos_pts[0].y, msg->pos_pts[0].z);
     Eigen::Vector3d cp1(msg->pos_pts[1].x, msg->pos_pts[1].y, msg->pos_pts[1].z);
@@ -277,6 +284,7 @@ namespace ego_planner
       return; // if the current drone is too far to the received agent.
     }
 
+    // 5. 存储轨迹数据
     /* Store data */
     Eigen::MatrixXd pos_pts(3, msg->pos_pts.size());
     Eigen::VectorXd knots(msg->knots.size());
@@ -313,6 +321,7 @@ namespace ego_planner
     planner_manager_->swarm_trajs_buf_[id].start_time_ = msg->start_time;
     // planner_manager_->swarm_trajs_buf_[id].start_time_ = ros::Time::now(); // Un-reliable time sync
 
+    // 6. 碰撞检测
     /* Check Collision */
     if (planner_manager_->checkCollision(id))
     {
@@ -320,6 +329,7 @@ namespace ego_planner
     }
   }
 
+  // subscribe the id-1's traj
   void EGOReplanFSM::swarmTrajsCallback(const traj_utils::MultiBsplinesPtr &msg)
   {
 
@@ -416,6 +426,9 @@ namespace ego_planner
     cout << "[" + pos_call + "]: from " + state_str[pre_s] + " to " + state_str[int(new_state)] << endl;
   }
 
+  // timesOfConsecutiveStateCalls 是一个辅助函数，返回状态机的运行信息。
+  // 主要用于监控状态机的调用次数和当前执行状态。
+  // 可在轨迹规划、状态切换条件判断中提供关键信息，增强系统的动态适应性。
   std::pair<int, EGOReplanFSM::FSM_EXEC_STATE> EGOReplanFSM::timesOfConsecutiveStateCalls()
   {
     return std::pair<int, FSM_EXEC_STATE>(continously_called_times_, exec_state_);
@@ -904,7 +917,7 @@ namespace ego_planner
 
       if (t < planner_manager_->global_data_.last_progress_time_ + 1e-5 && dist > planning_horizen_)
       {
-        // Important conor case!
+        // Important cornor case!
         for (; t < planner_manager_->global_data_.global_duration_; t += t_step)
         {
           Eigen::Vector3d pos_t_temp = planner_manager_->global_data_.getPosition(t);
@@ -913,7 +926,7 @@ namespace ego_planner
           {
             pos_t = pos_t_temp;
             dist = (pos_t - start_pt_).norm();
-            cout << "Escape conor case \"getLocalTarget\"" << endl;
+            cout << "Escape cornor case \"getLocalTarget\"" << endl;
             break;
           }
         }

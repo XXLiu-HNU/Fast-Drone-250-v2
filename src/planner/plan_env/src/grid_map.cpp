@@ -40,6 +40,7 @@ void GridMap::initMap(ros::NodeHandle &nh)
   node_.param("grid_map/max_ray_length", mp_.max_ray_length_, -0.1);
 
   node_.param("grid_map/visualization_truncate_height", mp_.visualization_truncate_height_, -0.1);
+  node_.param("grid_map/virtual_ceil_height", mp_.virtual_ceil_height_, -0.1);
   node_.param("grid_map/virtual_ceil_yp", mp_.virtual_ceil_yp_, -0.1);
   node_.param("grid_map/virtual_ceil_yn", mp_.virtual_ceil_yn_, -0.1);
 
@@ -51,6 +52,11 @@ void GridMap::initMap(ros::NodeHandle &nh)
   node_.param("grid_map/ground_height", mp_.ground_height_, 1.0);
 
   node_.param("grid_map/odom_depth_timeout", mp_.odom_depth_timeout_, 1.0);
+
+  if( mp_.virtual_ceil_height_ - mp_.ground_height_ > z_size)
+  {
+    mp_.virtual_ceil_height_ = mp_.ground_height_ + z_size;
+  }
 
   mp_.resolution_inv_ = 1 / mp_.resolution_;
   mp_.map_origin_ = Eigen::Vector3d(-x_size / 2.0, -y_size / 2.0, mp_.ground_height_);
@@ -101,7 +107,7 @@ void GridMap::initMap(ros::NodeHandle &nh)
 
   depth_sub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(node_, "grid_map/depth", 50));
   extrinsic_sub_ = node_.subscribe<nav_msgs::Odometry>(
-      "/vins_fusion/extrinsic", 10, &GridMap::extrinsicCallback, this); //sub
+      "/vins_estimator/extrinsic", 10, &GridMap::extrinsicCallback, this); //sub
 
   if (mp_.pose_type_ == POSE_STAMPED)
   {
@@ -637,6 +643,14 @@ void GridMap::clearAndInflateLocalMap()
         }
       }
 
+  // add virtual ceiling to limit flight height
+  if (mp_.virtual_ceil_height_ > -0.5) {
+    int ceil_id = floor((mp_.virtual_ceil_height_ - mp_.map_origin_(2)) * mp_.resolution_inv_) - 1;
+    for (int x = md_.local_bound_min_(0); x <= md_.local_bound_max_(0); ++x)
+      for (int y = md_.local_bound_min_(1); y <= md_.local_bound_max_(1); ++y) {
+        md_.occupancy_buffer_inflate_[toAddress(x, y, ceil_id)] = 1;
+      }
+  }
 }
 
 void GridMap::visCallback(const ros::TimerEvent & /*event*/)
@@ -836,6 +850,14 @@ void GridMap::cloudCallback(const sensor_msgs::PointCloud2ConstPtr &img)
   boundIndex(md_.local_bound_min_);
   boundIndex(md_.local_bound_max_);
 
+  // add virtual ceiling to limit flight height
+  if (mp_.virtual_ceil_height_ > -0.5) {
+    int ceil_id = floor((mp_.virtual_ceil_height_ - mp_.map_origin_(2)) * mp_.resolution_inv_) - 1;
+    for (int x = md_.local_bound_min_(0); x <= md_.local_bound_max_(0); ++x)
+      for (int y = md_.local_bound_min_(1); y <= md_.local_bound_max_(1); ++y) {
+        md_.occupancy_buffer_inflate_[toAddress(x, y, ceil_id)] = 1;
+      }
+  }
 }
 
 void GridMap::publishMap()

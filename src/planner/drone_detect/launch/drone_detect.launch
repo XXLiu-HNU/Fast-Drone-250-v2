@@ -1,6 +1,6 @@
 <launch>
   <arg name="my_id" value="1"/>
-  <arg name="odom_topic" value="/vins_fusion/imu_propagate"/>
+  <arg name="odom_topic" value="/vins_estimator/imu_propagate"/>
 
   <!-- Launch ROS Package Template Node -->
   <node pkg="drone_detect" type="drone_detect" name="test_drone_detect" output="screen">
