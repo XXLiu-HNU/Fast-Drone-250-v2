@@ -39,7 +39,7 @@ And here is the [video](https://www.bilibili.com/video/BV1c4BRYtENh/?share_sourc
 
  1. The **drone position detection module** was not added, which resulted in other drones being modeled as obstacles when building the map, resulting in mediocre planning results.
 
- 2. The performance of the linear controller is average, and the tracking effect of the drone is average. The drone trajectory does not overlap with the planned trajectory, and the drone is** prone to collision when the speed is high**.
+ 2. The performance of the linear controller is average, and the tracking effect of the drone is average. The drone trajectory does not overlap with the planned trajectory, and the drone is **prone to collision when the speed is high**.
 
 ## Reference Projects
 1. [XTDroen](https://github.com/robin-shaun/XTDrone)   
