@@ -21,7 +21,7 @@ And here is the [video](https://www.bilibili.com/video/BV1c4BRYtENh/?share_sourc
    `mv forest.world  ~/Px4_firmware/Tools/sitl_gazebo/world`
 3. Start Simulation：
 
-   `roslaunch px4 multi_vbhicle.launch`
+   `roslaunch px4 multi_vehicle.launch`
 
 4. Follow this [link](https://www.yuque.com/xtdrone/manual_cn/pose_groundtruth) to set the location
 
