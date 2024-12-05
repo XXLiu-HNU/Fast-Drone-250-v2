@@ -22,6 +22,7 @@
 #include <traj_utils/PolyTraj.h>
 #include <traj_utils/MINCOTraj.h>
 
+#include <std_msgs/String.h> 
 using std::vector;
 
 namespace ego_planner
@@ -82,6 +83,7 @@ namespace ego_planner
     Eigen::Vector3d local_target_pt_, local_target_vel_; // local target state
     Eigen::Vector3d odom_pos_, odom_vel_, odom_acc_;     // odometry state
     std::vector<Eigen::Vector3d> wps_;
+    std_msgs::String egoPlaner_mode_msg_;
 
     /* ROS utils */
     ros::NodeHandle node_;
@@ -89,6 +91,7 @@ namespace ego_planner
     ros::Subscriber waypoint_sub_, odom_sub_, trigger_sub_, broadcast_ploytraj_sub_, mandatory_stop_sub_;
     ros::Publisher poly_traj_pub_, data_disp_pub_, broadcast_ploytraj_pub_, heartbeat_pub_, ground_height_pub_;
 
+    ros::Publisher egoPlaner_mode_pub_;
     /* state machine functions */
     void execFSMCallback(const ros::TimerEvent &e);
     void changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call);

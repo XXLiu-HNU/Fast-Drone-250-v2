@@ -9,7 +9,7 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/CommandLong.h>
 #include <mavros_msgs/CommandBool.h>
-
+#include <std_msgs/String.h> 
 #include "input.h"
 // #include "ThrustCurve.h"
 #include "controller.h"
@@ -41,9 +41,11 @@ public:
 
 	LinearControl &controller;
 
+	std_msgs::String px4ctrl_mode_msg_; //for GroundControl
 	ros::Publisher traj_start_trigger_pub;
 	ros::Publisher ctrl_FCU_pub;
 	ros::Publisher debug_pub; //debug
+	ros::Publisher px4ctrl_mode; //for GroundCtroll
 	ros::ServiceClient set_FCU_mode_srv;
 	ros::ServiceClient arming_client_srv;
 	ros::ServiceClient reboot_FCU_srv;

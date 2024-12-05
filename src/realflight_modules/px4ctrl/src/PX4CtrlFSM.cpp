@@ -48,6 +48,8 @@ void PX4CtrlFSM::process()
 	{
 	case MANUAL_CTRL:
 	{
+		px4ctrl_mode_msg_.data = "MANUAL_CTRL";  // Set the string data
+        px4ctrl_mode.publish(px4ctrl_mode_msg_);
 		if (rc_data.enter_hover_mode) // Try to jump to AUTO_HOVER
 		{
 			if (!odom_is_received(now_time))
@@ -147,6 +149,8 @@ void PX4CtrlFSM::process()
 
 	case AUTO_HOVER:
 	{
+		px4ctrl_mode_msg_.data = "AUTO_HOVER";  // Set the string data
+        px4ctrl_mode.publish(px4ctrl_mode_msg_);
 		if (!rc_data.is_hover_mode || !odom_is_received(now_time))
 		{
 			state = MANUAL_CTRL;
@@ -191,6 +195,8 @@ void PX4CtrlFSM::process()
 
 	case CMD_CTRL:
 	{
+		px4ctrl_mode_msg_.data = "CMD_CTRL";  // Set the string data
+        px4ctrl_mode.publish(px4ctrl_mode_msg_);
 		if (!rc_data.is_hover_mode || !odom_is_received(now_time))
 		{
 			state = MANUAL_CTRL;
@@ -222,6 +228,8 @@ void PX4CtrlFSM::process()
 
 	case AUTO_TAKEOFF:
 	{
+		px4ctrl_mode_msg_.data = "AUTO_TAKEOFF";  // Set the string data
+        px4ctrl_mode.publish(px4ctrl_mode_msg_);
 		if ((now_time - takeoff_land.toggle_takeoff_land_time).toSec() < AutoTakeoffLand_t::MOTORS_SPEEDUP_TIME) // Wait for several seconds to warn prople.
 		{
 			des = get_rotor_speed_up_des(now_time);
@@ -245,6 +253,8 @@ void PX4CtrlFSM::process()
 
 	case AUTO_LAND:
 	{
+		px4ctrl_mode_msg_.data = "AUTO_LAND";  // Set the string data
+        px4ctrl_mode.publish(px4ctrl_mode_msg_);
 		if (!rc_data.is_hover_mode || !odom_is_received(now_time))
 		{
 			state = MANUAL_CTRL;

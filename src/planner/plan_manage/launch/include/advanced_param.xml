@@ -56,6 +56,7 @@
         <remap from="~grid_map/cloud" to="/drone_$(arg drone_id)_$(arg cloud_topic)"/>
         <remap from="~grid_map/pose"   to = "/drone_$(arg drone_id)_$(arg camera_pose_topic)"/>
         <remap from="~grid_map/depth" to = "/iris_$(arg drone_id)/$(arg depth_topic)"/>
+        <remap from="egoPlaner_mode" to = "/iris_$(arg drone_id)/egoPlaner_mode"/>
         <!-- planning fsm -->
         <param name="fsm/flight_type" value="$(arg flight_type)" type="int"/>
         <param name="fsm/thresh_replan_time" value="1.0" type="double"/>

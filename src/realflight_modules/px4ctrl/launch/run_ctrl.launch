@@ -19,6 +19,7 @@
         <remap from="mavros/cmd/command" to="/$(arg namespace)/mavros/cmd/command" />
         <remap from="~odom" to="/$(arg namespace)/mavros/local_position/odom" />
         <remap from="~cmd" to="/$(arg namespace)/position_cmd" />
+        <remap from="px4ctrl_mode" to="/$(arg namespace)/px4ctrl_mode" />
         <rosparam command="load" file="$(find px4ctrl)/config/ctrl_param_fpv.yaml" />
     </node>
 

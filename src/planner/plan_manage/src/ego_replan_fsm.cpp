@@ -58,6 +58,7 @@ namespace ego_planner
     heartbeat_pub_ = nh.advertise<std_msgs::Empty>("planning/heartbeat", 10);
     ground_height_pub_ = nh.advertise<std_msgs::Float64>("/ground_height_measurement", 10);
 
+    egoPlaner_mode_pub_ = nh.advertise<std_msgs::String>("/egoPlaner_mode", 10);
     if (target_type_ == TARGET_TYPE::MANUAL_TARGET)
     {
       waypoint_sub_ = nh.subscribe("/goal", 1, &EGOReplanFSM::waypointCallback, this);
@@ -86,18 +87,20 @@ namespace ego_planner
     std_msgs::Empty heartbeat_msg;
     heartbeat_pub_.publish(heartbeat_msg);
 
-    static int fsm_num = 0;
-    fsm_num++;
-    if (fsm_num == 500)
-    {
-      fsm_num = 0;
-      printFSMExecState();
-    }
+    // static int fsm_num = 0;
+    // fsm_num++;
+    // if (fsm_num == 500)
+    // {
+    //   fsm_num = 0;
+    //   printFSMExecState();
+    // }
 
     switch (exec_state_)
     {
     case INIT:
     {
+      egoPlaner_mode_msg_.data = "INIT";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       if (!have_odom_)
       {
         goto force_return; // return;
@@ -108,6 +111,8 @@ namespace ego_planner
 
     case WAIT_TARGET:
     {
+      egoPlaner_mode_msg_.data = "WAIT_TARGET";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       if (!have_target_ || !have_trigger_)
         goto force_return; // return;
       else
@@ -119,6 +124,8 @@ namespace ego_planner
 
     case SEQUENTIAL_START: // for swarm or single drone with drone_id = 0
     {
+      egoPlaner_mode_msg_.data = "SEQUENTIAL_START";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       if (planner_manager_->pp_.drone_id <= 0 || (planner_manager_->pp_.drone_id >= 1 && have_recv_pre_agent_))
       {
         bool success = planFromGlobalTraj(10); // zx-todo
@@ -138,7 +145,8 @@ namespace ego_planner
 
     case GEN_NEW_TRAJ:
     {
-
+      egoPlaner_mode_msg_.data = "GEN_NEW_TRAJ";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       bool success = planFromGlobalTraj(10); // zx-todo
       if (success)
       {
@@ -155,6 +163,8 @@ namespace ego_planner
     case REPLAN_TRAJ:
     {
 
+      egoPlaner_mode_msg_.data = "REPLAN_TRAJ";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       if (planFromLocalTraj(1))
       {
         changeFSMExecState(EXEC_TRAJ, "FSM");
@@ -169,6 +179,8 @@ namespace ego_planner
 
     case EXEC_TRAJ:
     {
+      egoPlaner_mode_msg_.data = "EXEC_TRAJ";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       /* determine if need to replan */
       LocalTrajData *info = &planner_manager_->traj_.local_traj;
       double t_cur = ros::Time::now().toSec() - info->start_time;
@@ -216,6 +228,8 @@ namespace ego_planner
 
     case EMERGENCY_STOP:
     {
+      egoPlaner_mode_msg_.data = "EMERGENCY_STOP";
+      egoPlaner_mode_pub_.publish(egoPlaner_mode_msg_);
       if (flag_escape_emergency_) // Avoiding repeated calls
       {
         callEmergencyStop(odom_pos_);
@@ -247,10 +261,10 @@ namespace ego_planner
       continously_called_times_ = 1;
 
     static string state_str[8] = {"INIT", "WAIT_TARGET", "GEN_NEW_TRAJ", "REPLAN_TRAJ", "EXEC_TRAJ", "EMERGENCY_STOP", "SEQUENTIAL_START"};
-    int pre_s = int(exec_state_);
+    // int pre_s = int(exec_state_);
     exec_state_ = new_state;
-    cout << "[" + pos_call + "]"
-         << "Drone:" << planner_manager_->pp_.drone_id << ", from " + state_str[pre_s] + " to " + state_str[int(new_state)] << endl;
+    // cout << "[" + pos_call + "]"
+    //      << "Drone:" << planner_manager_->pp_.drone_id << ", from " + state_str[pre_s] + " to " + state_str[int(new_state)] << endl;
   }
 
   void EGOReplanFSM::printFSMExecState()
