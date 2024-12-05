@@ -34,9 +34,15 @@ And here is the [video](https://www.bilibili.com/video/BV1c4BRYtENh/?share_sourc
 5. Start Controller
 
    `roslaunch px4ctrl multi_run.launch`
-   
+
+## Existing Problems
+
+ 1. The **drone position detection module** was not added, which resulted in other drones being modeled as obstacles when building the map, resulting in mediocre planning results.
+
+ 2. The performance of the linear controller is average, and the tracking effect of the drone is average. The drone trajectory does not overlap with the planned trajectory, and the drone is **prone to collision when the speed is high**.
+
 ## Reference Projects
-1. [XTdroen](https://github.com/robin-shaun/XTDrone)   
+1. [XTDroen](https://github.com/robin-shaun/XTDrone)   
 The simulation platform of the experiment is modified based on this project. Interested readers can refer to the [document](https://www.yuque.com/xtdrone/manual_cn/install_scripts) for reproduction
 2. [Fast-Drone-250](https://github.com/ZJU-FAST-Lab/Fast-Drone-250)   
 The controller module comes from this project, but this project is only for real objects and a single drone
