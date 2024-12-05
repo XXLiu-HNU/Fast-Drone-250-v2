@@ -35,6 +35,11 @@ And here is the [video](https://www.bilibili.com/video/BV1c4BRYtENh/?share_sourc
 
    `roslaunch px4ctrl multi_run.launch`
 
+## Monitoring UAV State 
+You can use this [tools](https://github.com/XXLiu-HNU/uav-monitor) to monitor the UAV's state and the mode of the planer and controller.
+
+<img src="https://github.com/user-attachments/assets/99abd26d-ba97-4fdd-9e58-1f276fb70bf8" alt="image_00000" width="600"/>
+
 ## Existing Problems
 
  1. The **drone position detection module** was not added, which resulted in other drones being modeled as obstacles when building the map, resulting in mediocre planning results.
