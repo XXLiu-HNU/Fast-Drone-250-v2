@@ -51,6 +51,8 @@ target_link_libraries(ego_planner_node
 
 add_executable(traj_server src/traj_server.cpp)
 target_link_libraries(traj_server ${catkin_LIBRARIES})
+add_executable(control_test src/control_test.cpp)
+target_link_libraries(control_test ${catkin_LIBRARIES})
 # add_dependencies(traj_server ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 catkin_install_python(PROGRAMS scripts/vis.py
