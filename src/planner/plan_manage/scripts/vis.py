@@ -71,8 +71,7 @@ class MultiUAVVisualizer:
         icon_marker.ns = "uav_icons"
         icon_marker.id = uav_id
         icon_marker.type = Marker.MESH_RESOURCE
-        icon_marker.mesh_resource = "file:///home/xingxun/uav_control/src/offboard/scripts/hummingbird.mesh"  # 模型文件路径
-        # icon_marker.mesh_use_embedded_materials = True
+        icon_marker.mesh_resource = "package://ego_planner/scripts/meshes/hummingbird.mesh"  # 模型文件路径
 
         icon_marker.action = Marker.ADD
         icon_marker.pose = pose
@@ -82,10 +81,24 @@ class MultiUAVVisualizer:
         icon_marker.scale.y = 1.0
         icon_marker.scale.z = 1.0
 
-        # 设置模型颜色
-        icon_marker.color.r = 1.0
-        icon_marker.color.g = 1.0
-        icon_marker.color.b = 1.0
+        # 设置每个无人机的颜色
+        colors = [
+            (1.0, 0.0, 0.0),  # 红色
+            (0.0, 1.0, 0.0),  # 绿色
+            (0.0, 0.0, 1.0),  # 蓝色
+            (1.0, 1.0, 0.0),  # 黄色
+            (1.0, 0.0, 1.0),  # 紫色
+            (0.0, 1.0, 1.0),  # 青色
+            (0.5, 0.5, 0.5),  # 灰色
+            (1.0, 0.5, 0.0),  # 橙色
+            (0.5, 0.0, 1.0),  # 紫蓝色
+            (0.0, 0.5, 1.0)   # 青蓝色
+        ]
+        
+        r, g, b = colors[uav_id % len(colors)]  # 循环使用颜色
+        icon_marker.color.r = r
+        icon_marker.color.g = g
+        icon_marker.color.b = b
         icon_marker.color.a = 1.0  # 设置透明度，1.0为不透明
 
         # 发布模型标记
