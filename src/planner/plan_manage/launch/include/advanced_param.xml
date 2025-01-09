@@ -129,7 +129,7 @@
         <param name="manager/feasibility_tolerance" value="0.05" type="double"/>
         <param name="manager/planning_horizon" value="$(arg planning_horizon)" type="double"/>
         <param name="manager/use_multitopology_trajs" value="$(arg use_multitopology_trajs)" type="bool"/>
-        <param name="manager/drone_id" value="$(arg drone_id)"/>
+        <param name="manager/drone_id" value="-1"/>
         <!-- trajectory optimization -->
         <param name="optimization/constraint_points_perPiece" value="5" type="int"/>
         <param name="optimization/weight_obstacle" value="10000.0" type="double"/>
