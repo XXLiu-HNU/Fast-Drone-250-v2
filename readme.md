@@ -27,9 +27,9 @@ And here is the [video](https://www.bilibili.com/video/BV1c4BRYtENh/?share_sourc
 
 5. Start planer
 
-   `roslaunch ego_planer swarm_gazebo.launch`
+   `roslaunch ego_planner swarm_gazebo.launch`
 
-   `roslaunch ego_planer rviz.launch`
+   `roslaunch ego_planner rviz.launch`
 
 5. Start Controller
 
