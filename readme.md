@@ -24,14 +24,29 @@ And here is the [video](https://www.bilibili.com/video/BV1c4BRYtENh/?share_sourc
    `roslaunch px4 multi_vehicle.launch`
 
 4. Follow this [link](https://www.yuque.com/xtdrone/manual_cn/pose_groundtruth) to set the location
+5. Clone the code and compile
+   ```
+   cd {work_space}
+   git clone https://github.com/XXLiu-HNU/Fast-Drone-250-v2.git
+   catkin_make
+   ```
 
-5. Start planer
+7. Start planer
 
-   `roslaunch ego_planner swarm_gazebo.launch`
+   In Terminal 1 
+   ```
+   cd ${work_space}
+   source devel/setup.bash
+   roslaunch ego_planner swarm_gazebo.launch
+   ```
+   In Terminal 2
+   ```
+   cd ${work_space}
+   source devel/setup.bash
+   roslaunch ego_planner rviz.launch
+   ```
 
-   `roslaunch ego_planner rviz.launch`
-
-5. Start Controller
+8. Start Controller
 
    `roslaunch px4ctrl multi_run.launch`
 
