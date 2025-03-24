@@ -48,7 +48,7 @@ This document is an extension of [Fast-Drone-250](https://github.com/ZJU-FAST-La
 
 8. Start Controller
 
-   `roslaunch px4ctrl multi_run.launch`
+   `roslaunch px4ctrl multi_ctrl.launch`
 
 ## Monitoring UAV State 
 You can use this [tools](https://github.com/XXLiu-HNU/uav-monitor) to monitor the UAV's state and the mode of the planer and controller.
